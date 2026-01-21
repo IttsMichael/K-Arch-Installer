@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+
+ENV_FILE="/tmp/partition.env"
+if [ ! -f "$ENV_FILE" ]; then
+    echo "Missing $ENV_FILE. Run partitionscript first."
+    exit 1
+fi
+source "$ENV_FILE"
+
+echo "Defining partition paths..."
+
+# check if disk ends with digitt
+if [[ $DISK =~ [0-9]$ ]]; then
+    PART_SEP="p"
+else
+    PART_SEP=""
+fi
+
+BOOT_PART="${DISK}${PART_SEP}1" || { echo "Failed to define boot partition"; exit 1; } 
+ROOT_PART="${DISK}${PART_SEP}2" || { echo "Failed to define root partition"; exit 1; } 
+
+if [ "$swapyn" == "y" ]; then
+    SWAP_PART="${DISK}${PART_SEP}3" || { echo "Failed to define swap partition"; exit 1; } 
+    echo "Success."
+fi
+
+# Format partitions
+
+if [ "$swapyn" == "y" ]; then
+    mkswap "$SWAP_PART" || { echo "Failed to format swap partition"; exit 1; } 
+fi
+
+echo "Formating partitions..."
+mkfs.fat -F 32 "$BOOT_PART"  || { echo "Failed to format boot partition"; exit 1; } 
+mkfs.ext4 -F "$ROOT_PART"  || { echo "Failed to format root partition"; exit 1; } 
+echo "Success."

@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+
+ENV_FILE="/tmp/partition.env"
+if [ ! -f "$ENV_FILE" ]; then
+    echo "Missing $ENV_FILE. Run partitionscript first."
+    exit 1
+fi
+source "$ENV_FILE"
+
+
+echo "Defining partition paths..."
+
+# check last disk digit
+if [[ $DISK =~ [0-9]$ ]]; then
+    PART_SEP="p"
+else
+    PART_SEP=""
+fi
+
+BOOT_PART="${DISK}${PART_SEP}1" || { echo "Failed to define boot partition"; exit 1; } 
+ROOT_PART="${DISK}${PART_SEP}2" || { echo "Failed to define root partition"; exit 1; } 
+
+if [ "$swapyn" == "y" ]; then
+    SWAP_PART="${DISK}${PART_SEP}3" || { echo "Failed to define swap partition"; exit 1; } 
+    echo "Success."
+fi
+
+# Mount Root
+echo "Mounting root..."
+mount "$ROOT_PART" /mnt
+echo "Success."
+
+# Mount Boot (Create the directory first)
+echo "Mounting boot..."
+mkdir -p /mnt/boot
+mount "$BOOT_PART" /mnt/boot
+echo "Success."
+
+# Enable Swap
+if [ "$swapyn" == "y" ]; then
+    echo "Enabling swap..."
+    swapon "$SWAP_PART"
+    echo "Success."
+fi
+
+
+echo "Disk $DISK has been partitioned, formatted, and mounted to /mnt."
