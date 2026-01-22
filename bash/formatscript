@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 
-ENV_FILE="/tmp/partition.env"
-if [ ! -f "$ENV_FILE" ]; then
-    echo "Missing $ENV_FILE. Run partitionscript first."
-    exit 1
+BASE_DIR="/usr/local/share"
+VARS_FILE="$BASE_DIR/disk.sh"
+
+if [[ ! -f "$VARS_FILE" ]]; then
+  echo "Missing vars file: $VARS_FILE" >&2
+  exit 1
 fi
-source "$ENV_FILE"
+source "$VARS_FILE"
 
 echo "Defining partition paths..."
 
@@ -17,11 +19,12 @@ else
 fi
 
 BOOT_PART="${DISK}${PART_SEP}1" || { echo "Failed to define boot partition"; exit 1; } 
-ROOT_PART="${DISK}${PART_SEP}2" || { echo "Failed to define root partition"; exit 1; } 
 
 if [ "$swapyn" == "y" ]; then
-    SWAP_PART="${DISK}${PART_SEP}3" || { echo "Failed to define swap partition"; exit 1; } 
-    echo "Success."
+    SWAP_PART="${DISK}${PART_SEP}2" || { echo "Failed to define swap partition"; exit 1; } 
+    ROOT_PART="${DISK}${PART_SEP}3" || { echo "Failed to define root partition"; exit 1; } 
+else 
+    ROOT_PART="${DISK}${PART_SEP}2" || { echo "Failed to define root partition"; exit 1; } 
 fi
 
 # Format partitions
@@ -34,3 +37,5 @@ echo "Formating partitions..."
 mkfs.fat -F 32 "$BOOT_PART"  || { echo "Failed to format boot partition"; exit 1; } 
 mkfs.ext4 -F "$ROOT_PART"  || { echo "Failed to format root partition"; exit 1; } 
 echo "Success."
+
+bash /usr/local/share/bash/mountingscript.sh || { echo "install_base failed"; exit 1; }

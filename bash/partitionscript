@@ -25,28 +25,23 @@ echo "Success."
 rootstart=1025
 
 
+if [ "$swapyn" = "y" ]; then
+    echo "Creating Swap Partition ($swapsize)..."
+    swapstart="${rootstart}MiB"
+    swapend="$((rootstart + swapsize))MiB"
+    parted -s "$TARGET_DISK" mkpart primary linux-swap "$swapstart" "$swapend" || { echo "Failed to create swap partition."; exit 1; }
+    echo "Success."
+
+    rootstart=$((rootstart + swapsize))
+fi
+
 echo "Creating root partition ($rootsize)..."
 rootend=$((rootstart + rootsize))
-parted -s "$TARGET_DISK" mkpart primary ext4 "${rootstart}MiB" "${rootend}MiB"
+parted -s "$TARGET_DISK" mkpart primary ext4 "${rootstart}MiB" "${rootend}MiB" || { echo "Failed to create root partition."; exit 1; }
 echo "Success."
-
-
-if [ "$swapyn" == "y" ]; then
-    echo "Creating Swap Partition ($swapsize)..."
-    parted -s "$TARGET_DISK" mkpart primary linux-swap "${rootend}MiB" "$((rootend + swapsize))MiB"
-    echo "Success."
-fi
 
 echo "Successfully created UEFI, root and swap partition."
 
-export swapyn
-export swapsize
-export rootsize
+bash /usr/local/share/bash/formatscript.sh || { echo "install_base failed"; exit 1; }
 
-ENV_FILE="/tmp/partition.env"
-cat > "$ENV_FILE" <<EOF
-export DISK="$TARGET_DISK"
-export rootsize="$rootsize"
-export swapsize="$swapsize"
-export swapyn="$swapyn"
-EOF
+
