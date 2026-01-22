@@ -24,29 +24,14 @@ echo "Success."
 
 rootstart=1025
 
-# rootsize=${rootsize:-10000}
-rootsize=10000
-
-while [ "$rootsize" -lt 10000 ]; do
-    echo "Error: $rootsize is too small. Minimum is 10000."
-    #read -p "Define size of root partition: " rootsize
-    #rootsize=${rootsize:-10000}
-done
 
 echo "Creating root partition ($rootsize)..."
 rootend=$((rootstart + rootsize))
 parted -s "$TARGET_DISK" mkpart primary ext4 "${rootstart}MiB" "${rootend}MiB"
 echo "Success."
 
-#read -p "Create swap partition? Y/n? " swapyn
-swapyn="y"
-swapyn=${swapyn:-"y"}
 
 if [ "$swapyn" == "y" ]; then
-    while [ -z "$swapsize" ]; do
-        read -p "Define size of swap partition. (In MiB, Minimum 1000) " swapsize
-    done
-
     echo "Creating Swap Partition ($swapsize)..."
     parted -s "$TARGET_DISK" mkpart primary linux-swap "${rootend}MiB" "$((rootend + swapsize))MiB"
     echo "Success."

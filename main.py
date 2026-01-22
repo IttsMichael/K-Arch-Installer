@@ -29,12 +29,26 @@ for dev in json.loads(datadisk)["blockdevices"]:
         pathdisk = f"/dev/{name}"
 
         disks.append((displaydisk, pathdisk))
-        
+
+def toggle_swap(enabled: bool):
+    window.spinSwap.setEnabled(enabled)
+
+
 def saved():
     idxdisks = window.comboBox.currentIndex()
     pathdisk = disks[idxdisks][1]
-    with open(os.path.join(base_dir, "disk.sh"), "w", encoding="utf-8") as f:
+    root_size = window.spinRoot.value()
+    swap_enabled = window.swapCheck.isChecked()
+    swap_size = window.spinSwap.value() if swap_enabled else 0
+    swapyn = "y" if swap_enabled else "n"
+    vars_path = os.path.join(base_dir, "disk.sh")
+    with open(vars_path, "w", encoding="utf-8") as f:
         f.write(f'TARGET_DISK="{pathdisk}"\n')
+        f.write(f'rootsize="{root_size}"\n')
+        f.write(f'swapyn="{swapyn}"\n')
+        f.write(f'swapsize="{swap_size}"\n')
+        f.write("export TARGET_DISK rootsize swapyn swapsize\n")
+    subprocess.run(["bash", "/usr/local/share/bash/partitionscript"], check=True)
 
 def next_clicked():
     print("next was clicked")
@@ -59,6 +73,8 @@ loader = QUiLoader()
 window = loader.load(file)
 file.close()
 
+window.swapCheck.toggled.connect(toggle_swap)
+toggle_swap(window.swapCheck.isChecked())
 next_btn = window.findChild(QPushButton, "nextButton")
 next_btn.clicked.connect(next_clicked)
 
