@@ -9,6 +9,7 @@ if [[ ! -f "$VARS_FILE" ]]; then
 fi
 source "$VARS_FILE"
 
+DISK="$TARGET_DISK"
 
 echo "Defining partition paths..."
 

@@ -11,21 +11,23 @@ source "$VARS_FILE"
 
 echo "Defining partition paths..."
 
-# check if disk ends with digitt
+DISK="$TARGET_DISK"
+
 if [[ $DISK =~ [0-9]$ ]]; then
     PART_SEP="p"
 else
     PART_SEP=""
 fi
 
-BOOT_PART="${DISK}${PART_SEP}1" || { echo "Failed to define boot partition"; exit 1; } 
+BOOT_PART="${DISK}${PART_SEP}1"
 
-if [ "$swapyn" == "y" ]; then
-    SWAP_PART="${DISK}${PART_SEP}2" || { echo "Failed to define swap partition"; exit 1; } 
-    ROOT_PART="${DISK}${PART_SEP}3" || { echo "Failed to define root partition"; exit 1; } 
-else 
-    ROOT_PART="${DISK}${PART_SEP}2" || { echo "Failed to define root partition"; exit 1; } 
+if [[ "$swapyn" == "y" ]]; then
+    SWAP_PART="${DISK}${PART_SEP}2"
+    ROOT_PART="${DISK}${PART_SEP}3"
+else
+    ROOT_PART="${DISK}${PART_SEP}2"
 fi
+
 
 # Format partitions
 
@@ -38,4 +40,4 @@ mkfs.fat -F 32 "$BOOT_PART"  || { echo "Failed to format boot partition"; exit 1
 mkfs.ext4 -F "$ROOT_PART"  || { echo "Failed to format root partition"; exit 1; } 
 echo "Success."
 
-bash /usr/local/share/bash/mountingscript.sh || { echo "install_base failed"; exit 1; }
+bash /usr/local/share/bash/mountingscript || { echo "install_base failed"; exit 1; }

@@ -42,6 +42,6 @@ echo "Success."
 
 echo "Successfully created UEFI, root and swap partition."
 
-bash /usr/local/share/bash/formatscript.sh || { echo "install_base failed"; exit 1; }
+bash /usr/local/share/bash/formatscript || { echo "install_base failed"; exit 1; }
 
 
