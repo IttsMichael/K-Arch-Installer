@@ -1,2 +1,1 @@
-TARGET_DISK=/dev/nvme0n1
-export TARGET_DISK="$TARGET_DISK"
+TARGET_DISK="/dev/sda"

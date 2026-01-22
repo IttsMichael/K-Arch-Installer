@@ -1,5 +1,8 @@
+#!/usr/bin/env python
+
 import sys
 import os
+import json
 import subprocess
 from PySide6.QtWidgets import QApplication, QPushButton
 from PySide6.QtUiTools import QUiLoader
@@ -8,17 +11,30 @@ base_dir = os.path.dirname(os.path.abspath(__file__))
 
 page = 0
 
-
 disks = []
-for line in subprocess.check_output(["lsblk", "-dn", "-o", "NAME,TYPE"], text = True).splitlines():
-    name, typ = line.split()
-    if typ == "disk":
-        disks.append("/dev/" + name)
 
+datadisk = subprocess.check_output(
+    ["lsblk", "-dn", "-o", "NAME,MODEL,SIZE,TYPE", "-J"],
+    text=True
+)
+
+for dev in json.loads(datadisk)["blockdevices"]:
+    if dev ["type"] == "disk":
+        model = dev["model"] or "Unknown device"
+        model = model.replace("_", " ").strip()
+        size = dev["size"]
+        name = dev["name"]
+
+        displaydisk = f"{model} ({size}) - /dev/{name}"
+        pathdisk = f"/dev/{name}"
+
+        disks.append((displaydisk, pathdisk))
+        
 def saved():
-    disk = window.comboBox.currentText()
-    with open("./disk.sh", "w") as f:
-        f.write("TARGET_DISK=" + disk + "\n")
+    idxdisks = window.comboBox.currentIndex()
+    pathdisk = disks[idxdisks][1]
+    with open(os.path.join(base_dir, "disk.sh"), "w", encoding="utf-8") as f:
+        f.write(f'TARGET_DISK="{pathdisk}"\n')
 
 def next_clicked():
     print("next was clicked")
@@ -30,13 +46,12 @@ def next_clicked():
 
 def page1():
     window.stackedWidget.setCurrentIndex(1)
-    window.comboBox.addItems(disks)
+    window.comboBox.addItems(d[0] for d in disks)
     window.savedisks.clicked.connect(saved)
 
 
 app = QApplication(sys.argv)
-
-file = QFile("./installer.ui")
+file = QFile(os.path.join(base_dir, "installer.ui"))
 file.open(QFile.ReadOnly)
 
 
