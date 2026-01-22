@@ -3,41 +3,43 @@
 echo "Defining target device..."
 
 # List disks and prompt
-echo "Available disks: (if empty run lsblk)"
+BASE_DIR="/usr/local/share"
+VARS_FILE="$BASE_DIR/disk.sh"
 
-lsblk -dn -o NAME,SIZE,MODEL,TYPE | awk '$4=="disk"{print $1, $2, $3}' 
+if [[ ! -f "$VARS_FILE" ]]; then
+  echo "Missing vars file: $VARS_FILE" >&2
+  exit 1
+fi
+source "$VARS_FILE"
 
-
-read -p "Enter disk (e.g. sda, nvme0n1): " diskname
-DISK="/dev/$diskname"|| { echo "Faild to find disk."; exit 1; }
-echo "Success."
 
 echo "Creating partition table..."
-parted -s "$DISK" mklabel gpt || { echo "Faild to create partition table"; exit 1; }
+parted -s "$TARGET_DISK" mklabel gpt || { echo "Faild to create partition table"; exit 1; }
 echo "Success."
 
 echo "Creating UEFI Boot Partition (1GiB)..."
-parted -s "$DISK" mkpart primary fat32 1MiB 1025MiB || { echo "Faild to create UEFI boot partition."; exit 1; }
-parted -s "$DISK" set 1 esp on || { echo "Faild to create UEFI boot partition."; exit 1; }
+parted -s "$TARGET_DISK" mkpart primary fat32 1MiB 1025MiB || { echo "Faild to create UEFI boot partition."; exit 1; }
+parted -s "$TARGET_DISK" set 1 esp on || { echo "Faild to create UEFI boot partition."; exit 1; }
 echo "Success."
 
 rootstart=1025
 
-read -p "Define size of root partition. (In MiB, 10000 if empty, 10000 minimum) " rootsize
-rootsize=${rootsize:-10000}
+# rootsize=${rootsize:-10000}
+rootsize=10000
 
 while [ "$rootsize" -lt 10000 ]; do
     echo "Error: $rootsize is too small. Minimum is 10000."
-    read -p "Define size of root partition: " rootsize
-    rootsize=${rootsize:-10000}
+    #read -p "Define size of root partition: " rootsize
+    #rootsize=${rootsize:-10000}
 done
 
 echo "Creating root partition ($rootsize)..."
 rootend=$((rootstart + rootsize))
-parted -s "$DISK" mkpart primary ext4 "${rootstart}MiB" "${rootend}MiB"
+parted -s "$TARGET_DISK" mkpart primary ext4 "${rootstart}MiB" "${rootend}MiB"
 echo "Success."
 
-read -p "Create swap partition? Y/n? " swapyn
+#read -p "Create swap partition? Y/n? " swapyn
+swapyn="y"
 swapyn=${swapyn:-"y"}
 
 if [ "$swapyn" == "y" ]; then
@@ -46,7 +48,7 @@ if [ "$swapyn" == "y" ]; then
     done
 
     echo "Creating Swap Partition ($swapsize)..."
-    parted -s "$DISK" mkpart primary linux-swap "${rootend}MiB" "$((rootend + swapsize))MiB"
+    parted -s "$TARGET_DISK" mkpart primary linux-swap "${rootend}MiB" "$((rootend + swapsize))MiB"
     echo "Success."
 fi
 
@@ -58,7 +60,7 @@ export rootsize
 
 ENV_FILE="/tmp/partition.env"
 cat > "$ENV_FILE" <<EOF
-export DISK="$DISK"
+export DISK="$TARGET_DISK"
 export rootsize="$rootsize"
 export swapsize="$swapsize"
 export swapyn="$swapyn"
