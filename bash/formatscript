@@ -41,4 +41,4 @@ mkfs.ext4 -F "$ROOT_PART"  || { echo "Failed to format root partition"; exit 1; 
 echo "Success."
 
 bash /usr/local/share/bash/mountingscript || { echo "install_base failed"; exit 1; }
-#test
+#tes
