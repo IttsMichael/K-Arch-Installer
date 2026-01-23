@@ -12,6 +12,7 @@ base_dir = os.path.dirname(os.path.abspath(__file__))
 page = 0
 
 disks = []
+layouts = []
 
 datadisk = subprocess.check_output(
     ["lsblk", "-dn", "-o", "NAME,MODEL,SIZE,TYPE", "-J"],
@@ -40,8 +41,8 @@ def toggle_swap(enabled: bool):
 
 #test
 
-def saved():
-    idxdisks = window.comboBox.currentIndex()
+def savedisk():
+    idxdisks = window.comboDisk.currentIndex()
     pathdisk = disks[idxdisks][1]
     root_size = window.spinRoot.value()
     swap_enabled = window.swapCheck.isChecked()
@@ -56,6 +57,37 @@ def saved():
         f.write("export TARGET_DISK rootsize swapyn swapsize\n")
     # subprocess.run(["bash", "/usr/local/share/bash/partitionscript"], check=True)
 
+def layout_format():
+    window.comboLayout.clear()
+
+    with open("/usr/share/X11/xkb/rules/base.lst", encoding="utf-8") as f:
+        in_layouts = False
+        for line in f:
+            line = line.strip()
+            if line.startswith("! layout"):
+                in_layouts = True
+                continue
+            if line.startswith("!") and in_layouts:
+                break
+            if in_layouts and line:
+                parts = line.split(None, 1)
+                if len(parts) == 2:
+                    code, name = parts
+                    layouts.append((name, code))
+                    window.comboLayout.addItem(f"{name} — {code}", code)
+
+
+def save_time():
+    layout_code = window.comboLayout.currentData()
+    idxtime = window.comboZone.currentText()
+    print(layout_code)
+    subprocess.run(["localectl", "set-x11-keymap", layout_code], check=True)
+
+    if layout_code in ("us", "de", "fr", "uk", "es", "it"):
+        subprocess.run(["localectl", "set-keymap", layout_code], check=True)
+
+    subprocess.run(["timedatectl", "set-timezone", idxtime], check=True)
+    
 def next_clicked():
     print("next was clicked")
     global page
@@ -68,13 +100,16 @@ def next_clicked():
         page2()
 
 def page1():
+    layout_format()
+    window.savetime.clicked.connect(save_time)
     window.stackedWidget.setCurrentIndex(1)
     window.comboZone.addItems(timezones)
+    window.savetime.clicked.connect(save_time)
 
 def page2():
     window.stackedWidget.setCurrentIndex(2)
     window.comboDisk.addItems(d[0] for d in disks)
-    window.savedisks.clicked.connect(saved)
+    window.savedisks.clicked.connect(savedisk)
 
 
 app = QApplication(sys.argv)
@@ -90,8 +125,6 @@ window.swapCheck.toggled.connect(toggle_swap)
 toggle_swap(window.swapCheck.isChecked())
 next_btn = window.findChild(QPushButton, "nextButton")
 next_btn.clicked.connect(next_clicked)
-next_btn2 = window.findChild(QPushButton, "nextButton_2")
-next_btn2.clicked.connect(next_clicked)
 
 window.show()
 window.stackedWidget.setCurrentIndex(0)

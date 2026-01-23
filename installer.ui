@@ -85,8 +85,8 @@ QWidget {
      </property>
     </widget>
    </widget>
-   <widget class="QWidget" name="page_2">
-    <widget class="QPushButton" name="nextButton_2">
+   <widget class="QWidget" name="page1">
+    <widget class="QPushButton" name="savetime">
      <property name="geometry">
       <rect>
        <x>400</x>
@@ -134,7 +134,7 @@ QWidget {
     <widget class="KComboBox" name="comboZone">
      <property name="geometry">
       <rect>
-       <x>170</x>
+       <x>250</x>
        <y>90</y>
        <width>221</width>
        <height>32</height>
@@ -154,8 +154,31 @@ QWidget {
       <string>Select your time zone:</string>
      </property>
     </widget>
+    <widget class="QLabel" name="label_6">
+     <property name="geometry">
+      <rect>
+       <x>20</x>
+       <y>190</y>
+       <width>251</width>
+       <height>18</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>Select your keyboard layout:</string>
+     </property>
+    </widget>
+    <widget class="KComboBox" name="comboLayout">
+     <property name="geometry">
+      <rect>
+       <x>250</x>
+       <y>183</y>
+       <width>221</width>
+       <height>32</height>
+      </rect>
+     </property>
+    </widget>
    </widget>
-   <widget class="QWidget" name="page1">
+   <widget class="QWidget" name="page2">
     <widget class="QComboBox" name="comboDisk">
      <property name="geometry">
       <rect>
