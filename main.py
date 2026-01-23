@@ -4,6 +4,7 @@ import sys
 import os
 import json
 import subprocess
+from style import apply_style
 from PySide6.QtWidgets import QApplication, QPushButton
 from PySide6.QtUiTools import QUiLoader
 from PySide6.QtCore import QFile
@@ -87,7 +88,7 @@ def save_time():
         subprocess.run(["localectl", "set-keymap", layout_code], check=True)
 
     subprocess.run(["timedatectl", "set-timezone", idxtime], check=True)
-    
+
 def next_clicked():
     print("next was clicked")
     global page
@@ -99,9 +100,13 @@ def next_clicked():
         print("page2")
         page2()
 
+def on_save_clicked():
+    save_time()
+    next_clicked()
+
 def page1():
     layout_format()
-    window.savetime.clicked.connect(save_time)
+    window.savetime.clicked.connect(on_save_clicked)
     window.stackedWidget.setCurrentIndex(1)
     window.comboZone.addItems(timezones)
     window.savetime.clicked.connect(save_time)
@@ -120,6 +125,8 @@ file.open(QFile.ReadOnly)
 loader = QUiLoader()
 window = loader.load(file)
 file.close()
+
+apply_style(window)
 
 window.swapCheck.toggled.connect(toggle_swap)
 toggle_swap(window.swapCheck.isChecked())
