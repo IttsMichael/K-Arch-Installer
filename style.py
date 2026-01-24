@@ -114,3 +114,4 @@ def apply_style(widget):
         background-color: #1793d1;
     }
     """)
+#1
