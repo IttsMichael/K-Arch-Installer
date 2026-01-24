@@ -4,6 +4,7 @@ import sys
 import os
 import json
 import subprocess
+import threading
 from style import apply_style
 from PySide6.QtWidgets import QApplication, QPushButton
 from PySide6.QtUiTools import QUiLoader
@@ -86,13 +87,18 @@ def layout_format():
 def save_time():
     layout_code = window.comboLayout.currentData()
     idxtime = window.comboZone.currentText()
-    print(layout_code)
-    # subprocess.run(["localectl", "set-x11-keymap", layout_code], check=True)
+    
+    def run_commands():
+        try:
+            if layout_code in ("us", "de", "fr", "uk", "es", "it"):
+                subprocess.run(["localectl", "set-keymap", layout_code], check=True)
+            
+            subprocess.run(["timedatectl", "set-timezone", idxtime], check=True)
+            print("Time and layout updated.")
+        except subprocess.CalledProcessError as e:
+            print(f"Error setting time/layout: {e}")
 
-    if layout_code in ("us", "de", "fr", "uk", "es", "it"):
-        subprocess.run(["localectl", "set-keymap", layout_code], check=True)
-
-    subprocess.run(["timedatectl", "set-timezone", idxtime], check=True)
+    threading.Thread(target=run_commands, daemon=True).start()
 
 def next_clicked():
     print("next was clicked")
@@ -128,32 +134,36 @@ def connect_wifi():
     ssid = data["ssid"]
     secure = data["secure"]
 
-    window.labelStatusWifi.setText("Connecting…")
+    window.labelStatusWifi.setText("Connecting...")
 
-    if secure:
-        password = window.passwordWifi.text().strip()
-        if not password:
-            window.labelStatusWifi.setText("Password required")
-            return
+    def run_connection():
+        try:
+            if secure:
+                password = window.passwordWifi.text().strip()
+                if not password:
+                    
+                    window.labelStatusWifi.setText("Password required")
+                    return
 
-        subprocess.run([
-            "nmcli", "connection", "add",
-            "type", "wifi",
-            "ifname", "*",
-            "con-name", ssid,
-            "ssid", ssid,
-            "wifi-sec.key-mgmt", "wpa-psk",
-            "wifi-sec.psk", password
-        ], check=True)
+                subprocess.run([
+                    "nmcli", "connection", "add",
+                    "type", "wifi", "ifname", "*",
+                    "con-name", ssid, "ssid", ssid,
+                    "wifi-sec.key-mgmt", "wpa-psk",
+                    "wifi-sec.psk", password
+                ], check=True)
 
-        subprocess.run([
-            "nmcli", "connection", "up", ssid
-        ], check=True)
+                subprocess.run(["nmcli", "connection", "up", ssid], check=True)
+            else:
+                subprocess.run(["nmcli", "device", "wifi", "connect", ssid], check=True)
+            
+            print(f"Successfully connected to {ssid}")
+            
+        except subprocess.CalledProcessError:
+            window.labelStatusWifi.setText("Connection Failed")
 
-    else:
-        subprocess.run([
-            "nmcli", "device", "wifi", "connect", ssid
-        ], check=True)
+
+    threading.Thread(target=run_connection, daemon=True).start()
 
 
 def page1():
