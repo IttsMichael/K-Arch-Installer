@@ -8,12 +8,16 @@ from style import apply_style
 from PySide6.QtWidgets import QApplication, QPushButton
 from PySide6.QtUiTools import QUiLoader
 from PySide6.QtCore import QFile
+from PySide6.QtWidgets import QListWidgetItem
+from PySide6.QtCore import Qt
+
 base_dir = os.path.dirname(os.path.abspath(__file__))
 
 page = 0
 
 disks = []
 layouts = []
+subprocess.run(["systemctl", "start", "NetworkManager"], check=True)
 
 datadisk = subprocess.check_output(
     ["lsblk", "-dn", "-o", "NAME,MODEL,SIZE,TYPE", "-J"],
@@ -43,6 +47,7 @@ def toggle_swap(enabled: bool):
 #test
 
 def savedisk():
+    next_clicked()
     idxdisks = window.comboDisk.currentIndex()
     pathdisk = disks[idxdisks][1]
     root_size = window.spinRoot.value()
@@ -82,7 +87,7 @@ def save_time():
     layout_code = window.comboLayout.currentData()
     idxtime = window.comboZone.currentText()
     print(layout_code)
-    subprocess.run(["localectl", "set-x11-keymap", layout_code], check=True)
+    # subprocess.run(["localectl", "set-x11-keymap", layout_code], check=True)
 
     if layout_code in ("us", "de", "fr", "uk", "es", "it"):
         subprocess.run(["localectl", "set-keymap", layout_code], check=True)
@@ -99,10 +104,42 @@ def next_clicked():
     elif page == 2:
         print("page2")
         page2()
+    elif page == 3:
+        print("page3")
+        page3()
 
 def on_save_clicked():
     save_time()
     next_clicked()
+
+def disconnect_wifi():
+    subprocess.run(
+        ["nmcli", "device", "disconnect", "wlan0"],
+        check=True
+    )
+    page3()
+
+def connect_wifi():
+    item = window.wifiList.currentItem()
+    if not item:
+        return
+    data = item.data(Qt.UserRole)
+    ssid = data["ssid"]
+    secure = data["secure"]
+
+    window.labelStatusWifi.setText("Connecting...")
+
+    if secure:
+        password = window.passwordWifi.text()
+        subprocess.run(
+            ["nmcli", "device", "wifi", "connect", ssid, "password", password],
+            check=True
+        )
+    else:
+        subprocess.run(
+            ["nmcli", "device", "wifi", "connect", ssid],
+            check=True
+        )
 
 def page1():
     layout_format()
@@ -117,6 +154,39 @@ def page2():
     window.savedisks.clicked.connect(savedisk)
 
 
+def page3():
+    window.stackedWidget.setCurrentIndex(3)
+    window.wifiList.clear()
+    status = subprocess.check_output(
+    ["nmcli", "-t", "-f", "STATE", "general"],
+    text=True
+)    
+    window.labelStatusWifi.setText(status.capitalize())
+    wifilist = subprocess.check_output(
+    ["nmcli", "-t", "-f", "IN-USE,SSID,SECURITY,SIGNAL", "device", "wifi", "list"],
+    text=True
+)
+    for line in wifilist.splitlines():
+        in_use, ssid, security, signal = line.split(":", 3)        
+        lock = "🔒" if security != "--" else "🔓"
+        text = f"{ssid}  {lock}  {signal}%"
+
+        if in_use == "*":
+            connected_icon = " ✅"
+        else:
+            connected_icon = ""
+
+        item = QListWidgetItem(text)
+        item.setData(Qt.UserRole, {
+            "ssid": ssid,
+            "secure": security != "--"
+        })
+
+        item.setText(text + connected_icon)
+        window.wifiList.addItem(item)
+
+       
+
 app = QApplication(sys.argv)
 file = QFile(os.path.join(base_dir, "installer.ui"))
 file.open(QFile.ReadOnly)
@@ -128,6 +198,9 @@ file.close()
 
 apply_style(window)
 
+window.connect_button.clicked.connect(connect_wifi)
+# window.disconnect_button.clicked.connect(disconnect_wifi)
+window.refreshn.clicked.connect(page3)
 window.swapCheck.toggled.connect(toggle_swap)
 toggle_swap(window.swapCheck.isChecked())
 next_btn = window.findChild(QPushButton, "nextButton")
