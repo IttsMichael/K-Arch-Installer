@@ -123,23 +123,38 @@ def connect_wifi():
     item = window.wifiList.currentItem()
     if not item:
         return
+
     data = item.data(Qt.UserRole)
     ssid = data["ssid"]
     secure = data["secure"]
 
-    window.labelStatusWifi.setText("Connecting...")
+    window.labelStatusWifi.setText("Connecting…")
 
     if secure:
-        password = window.passwordWifi.text()
-        subprocess.run(
-            ["nmcli", "device", "wifi", "connect", ssid, "password", password],
-            check=True
-        )
+        password = window.passwordWifi.text().strip()
+        if not password:
+            window.labelStatusWifi.setText("Password required")
+            return
+
+        subprocess.run([
+            "nmcli", "connection", "add",
+            "type", "wifi",
+            "ifname", "*",
+            "con-name", ssid,
+            "ssid", ssid,
+            "wifi-sec.key-mgmt", "wpa-psk",
+            "wifi-sec.psk", password
+        ], check=True)
+
+        subprocess.run([
+            "nmcli", "connection", "up", ssid
+        ], check=True)
+
     else:
-        subprocess.run(
-            ["nmcli", "device", "wifi", "connect", ssid],
-            check=True
-        )
+        subprocess.run([
+            "nmcli", "device", "wifi", "connect", ssid
+        ], check=True)
+
 
 def page1():
     layout_format()
