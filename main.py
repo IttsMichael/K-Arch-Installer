@@ -6,6 +6,7 @@ import json
 import subprocess
 import threading
 from style import apply_style
+from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QApplication, QPushButton
 from PySide6.QtUiTools import QUiLoader
 from PySide6.QtCore import QFile
@@ -15,7 +16,7 @@ from PySide6.QtCore import Qt
 base_dir = os.path.dirname(os.path.abspath(__file__))
 
 page = 0
-
+wifi_status = "Disconnected"
 disks = []
 layouts = []
 subprocess.run(["systemctl", "start", "NetworkManager"], check=True)
@@ -48,22 +49,31 @@ def toggle_swap(enabled: bool):
 #test
 
 def savedisk():
-    next_clicked()
-    idxdisks = window.comboDisk.currentIndex()
-    pathdisk = disks[idxdisks][1]
-    root_size = window.spinRoot.value()
-    swap_enabled = window.swapCheck.isChecked()
-    swap_size = window.spinSwap.value() if swap_enabled else 0
-    swapyn = "y" if swap_enabled else "n"
-    vars_path = os.path.join(base_dir, "disk.sh")
-    with open(vars_path, "w", encoding="utf-8") as f:
-        f.write(f'TARGET_DISK="{pathdisk}"\n')
-        f.write(f'rootsize="{root_size}"\n')
-        f.write(f'swapyn="{swapyn}"\n')
-        f.write(f'swapsize="{swap_size}"\n')
-        f.write("export TARGET_DISK rootsize swapyn swapsize\n")
-    # subprocess.run(["bash", "/usr/local/share/bash/partitionscript"], check=True)
+    
+    def run_partition():
+        next_clicked()
+        
+        idxdisks = window.comboDisk.currentIndex()
+        pathdisk = disks[idxdisks][1]
+        root_size = window.spinRoot.value()
+        swap_enabled = window.swapCheck.isChecked()
+        swap_size = window.spinSwap.value() if swap_enabled else 0
+        swapyn = "y" if swap_enabled else "n"
+        vars_path = os.path.join(base_dir, "disk.sh")
 
+        try:
+            with open(vars_path, "w", encoding="utf-8") as f:
+                f.write(f'TARGET_DISK="{pathdisk}"\n')
+                f.write(f'rootsize="{root_size}"\n')
+                f.write(f'swapyn="{swapyn}"\n')
+                f.write(f'swapsize="{swap_size}"\n')
+                f.write("export TARGET_DISK rootsize swapyn swapsize\n")
+            # subprocess.run(["bash", "/usr/local/share/bash/partitionscript"], check=True)
+        except subprocess.CalledProcessError as e:
+            print(f"Error setting time/layout: {e}")
+            
+    threading.Thread(target=run_partition, daemon=True).start()
+    
 def layout_format():
     window.comboLayout.clear()
 
@@ -126,6 +136,7 @@ def disconnect_wifi():
     page3()
 
 def connect_wifi():
+    
     item = window.wifiList.currentItem()
     if not item:
         return
@@ -133,18 +144,19 @@ def connect_wifi():
     data = item.data(Qt.UserRole)
     ssid = data["ssid"]
     secure = data["secure"]
+    password = window.passwordWifi.text().strip()
+
+    if secure and not password:
+        window.labelStatusWifi.setText("Password required")
+        return
 
     window.labelStatusWifi.setText("Connecting...")
+    window.connect_button.setEnabled(False)
 
     def run_connection():
         try:
-            if secure:
-                password = window.passwordWifi.text().strip()
-                if not password:
-                    
-                    window.labelStatusWifi.setText("Password required")
-                    return
 
+            if secure:
                 subprocess.run([
                     "nmcli", "connection", "add",
                     "type", "wifi", "ifname", "*",
@@ -158,13 +170,14 @@ def connect_wifi():
                 subprocess.run(["nmcli", "device", "wifi", "connect", ssid], check=True)
             
             print(f"Successfully connected to {ssid}")
+            window.labelStatusWifi.setText("Connected")
+            window.connect_button.setEnabled(True)
+            page3()
             
         except subprocess.CalledProcessError:
-            window.labelStatusWifi.setText("Connection Failed")
-
+            QTimer.singleShot(0, lambda: window.labelStatusWifi.setText("Connection Failed"))
 
     threading.Thread(target=run_connection, daemon=True).start()
-
 
 def page1():
     layout_format()
@@ -180,6 +193,7 @@ def page2():
 
 
 def page3():
+    global wifi_status
     window.stackedWidget.setCurrentIndex(3)
     window.wifiList.clear()
     status = subprocess.check_output(
@@ -187,6 +201,7 @@ def page3():
     text=True
 )    
     window.labelStatusWifi.setText(status.capitalize())
+    wifi_status = window.labelStatusWifi.setText(status.capitalize())
     wifilist = subprocess.check_output(
     ["nmcli", "-t", "-f", "IN-USE,SSID,SECURITY,SIGNAL", "device", "wifi", "list"],
     text=True
