@@ -20,6 +20,7 @@ wifi_status = "Disconnected"
 disks = []
 layouts = []
 subprocess.run(["systemctl", "start", "NetworkManager"], check=True)
+connected = False
 
 datadisk = subprocess.check_output(
     ["lsblk", "-dn", "-o", "NAME,MODEL,SIZE,TYPE", "-J"],
@@ -114,6 +115,7 @@ def next_clicked():
     print("next was clicked")
     global page
     page += 1
+    print(page)
     if page == 1:
         print("page1")
         page1()
@@ -123,6 +125,12 @@ def next_clicked():
     elif page == 3:
         print("page3")
         page3()
+    elif page == 4:
+        print("page4")
+        window.stackedWidget.setCurrentIndex(4)
+    elif page == 5:
+        print("page5")
+        page5()
 
 def on_save_clicked():
     save_time()
@@ -173,6 +181,9 @@ def connect_wifi():
             window.labelStatusWifi.setText("Connected")
             window.connect_button.setEnabled(True)
             page3()
+            global connected
+            connected = True
+            print(connected)
             
         except subprocess.CalledProcessError:
             QTimer.singleShot(0, lambda: window.labelStatusWifi.setText("Connection Failed"))
@@ -184,6 +195,48 @@ def log_item():
     if item:
         print(f"User clicked: {item.text()}")
         window.passwordWifi.setEnabled(True)
+
+
+def toggle_ethernet(enabled = bool):
+    window.passwordWifi.setEnabled(not enabled)
+    window.refreshn.setEnabled(not enabled)
+    window.wifiList.setEnabled(not enabled)
+    window.connect_button.setEnabled(not enabled)
+    
+    if enabled == True:
+        command = 'nmcli device | grep "ethernet" | awk \'{print $1}\' | head -n 1'
+
+        devicelan = subprocess.run(
+            command, 
+            shell=True, 
+            capture_output=True, 
+            text=True
+        )
+
+        devicelan = devicelan.stdout.strip()
+        print(f"Device found: {devicelan}")
+
+        subprocess.run(["nmcli", "device", "connect", devicelan], check=True)
+
+        global connected
+        connected = True
+        print(connected)
+
+
+def next_internet():
+    global connected
+    if connected == True:
+        page == 5
+        window.stackedWidget.setCurrentIndex(5)
+    else:
+        next_clicked()
+
+def back_wifi():
+    global page
+    page = 3
+    window.stackedWidget.setCurrentIndex(3)
+        
+
 
 def page1():
     layout_format()
@@ -231,7 +284,12 @@ def page3():
         item.setText(text + connected_icon)
         window.wifiList.addItem(item)
 
-       
+def page5():
+    window.stackedWidget.setCurrentIndex(4)
+
+
+
+
 
 app = QApplication(sys.argv)
 file = QFile(os.path.join(base_dir, "installer.ui"))
@@ -245,10 +303,13 @@ file.close()
 apply_style(window)
 window.wifiList.itemSelectionChanged.connect(log_item)
 
+window.next4.clicked.connect(next_clicked)
+window.cancelInternet.clicked.connect(back_wifi)
+window.nextInternet.clicked.connect(next_internet)
 window.connect_button.clicked.connect(connect_wifi)
-# window.disconnect_button.clicked.connect(disconnect_wifi)
 window.refreshn.clicked.connect(page3)
 window.swapCheck.toggled.connect(toggle_swap)
+window.ethernetCheck.toggled.connect(toggle_ethernet)
 toggle_swap(window.swapCheck.isChecked())
 next_btn = window.findChild(QPushButton, "nextButton")
 next_btn.clicked.connect(next_clicked)

@@ -19,11 +19,11 @@
      <x>0</x>
      <y>10</y>
      <width>511</width>
-     <height>361</height>
+     <height>371</height>
     </rect>
    </property>
    <property name="currentIndex">
-    <number>3</number>
+    <number>4</number>
    </property>
    <widget class="QWidget" name="page">
     <widget class="QLabel" name="info">
@@ -483,17 +483,100 @@ QListWidget:disabled {
       <string>Connect</string>
      </property>
     </widget>
-    <widget class="QPushButton" name="disconnect_button">
+    <widget class="QCheckBox" name="ethernetCheck">
      <property name="geometry">
       <rect>
-       <x>410</x>
-       <y>180</y>
+       <x>20</x>
+       <y>320</y>
+       <width>121</width>
+       <height>22</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>Use Ethernet</string>
+     </property>
+    </widget>
+    <widget class="QPushButton" name="nextInternet">
+     <property name="geometry">
+      <rect>
+       <x>400</x>
+       <y>310</y>
        <width>88</width>
        <height>34</height>
       </rect>
      </property>
      <property name="text">
-      <string>Disconnect</string>
+      <string>Next</string>
+     </property>
+    </widget>
+   </widget>
+   <widget class="QWidget" name="page4">
+    <widget class="QLabel" name="label_10">
+     <property name="geometry">
+      <rect>
+       <x>20</x>
+       <y>20</y>
+       <width>111</width>
+       <height>21</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>&lt;h3&gt;Are you sure?&lt;/h3&gt;
+</string>
+     </property>
+    </widget>
+    <widget class="QLabel" name="label_12">
+     <property name="geometry">
+      <rect>
+       <x>20</x>
+       <y>67</y>
+       <width>331</width>
+       <height>261</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;You need an internet connection to&lt;/p&gt;&lt;p&gt;download the necessary packages to &lt;/p&gt;&lt;p&gt;complete the installation.&lt;/p&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;p&gt;You can't install the system without an &lt;/p&gt;&lt;p&gt;internet connection.&lt;/p&gt;&lt;p&gt;Press next to continue or cancel to retry.&lt;/p&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+     </property>
+    </widget>
+    <widget class="QPushButton" name="cancelInternet">
+     <property name="geometry">
+      <rect>
+       <x>20</x>
+       <y>310</y>
+       <width>88</width>
+       <height>34</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>Cancel</string>
+     </property>
+    </widget>
+    <widget class="QPushButton" name="next4">
+     <property name="geometry">
+      <rect>
+       <x>400</x>
+       <y>310</y>
+       <width>88</width>
+       <height>34</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>Next</string>
+     </property>
+    </widget>
+   </widget>
+   <widget class="QWidget" name="page5">
+    <widget class="QLabel" name="label_11">
+     <property name="geometry">
+      <rect>
+       <x>70</x>
+       <y>40</y>
+       <width>58</width>
+       <height>18</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>drivers</string>
      </property>
     </widget>
    </widget>
