@@ -179,6 +179,12 @@ def connect_wifi():
 
     threading.Thread(target=run_connection, daemon=True).start()
 
+def log_item():
+    item = window.wifiList.currentItem()
+    if item:
+        print(f"User clicked: {item.text()}")
+        window.passwordWifi.setEnabled(True)
+
 def page1():
     layout_format()
     window.savetime.clicked.connect(on_save_clicked)
@@ -237,6 +243,7 @@ window = loader.load(file)
 file.close()
 
 apply_style(window)
+window.wifiList.itemSelectionChanged.connect(log_item)
 
 window.connect_button.clicked.connect(connect_wifi)
 # window.disconnect_button.clicked.connect(disconnect_wifi)
