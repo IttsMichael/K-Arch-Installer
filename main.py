@@ -50,11 +50,9 @@ for dev in json.loads(datadisk)["blockdevices"]:
 
 def install():
     global drivers
-    print("partitioning disk")
-    savedisk()
     base_cmd = ["pacstrap", "-K", "/mnt", "base", "linux-cachyos", "linux-firmware", "linux-cachyos-headers"]
     full_command = base_cmd + gpu_command.split()
-    subprocess.run(full_command)
+    # subprocess.run(full_command)
 
 def toggle_swap(enabled: bool):
     window.spinSwap.setEnabled(enabled)
@@ -80,7 +78,13 @@ def savedisk():
                 f.write(f'swapyn="{swapyn}"\n')
                 f.write(f'swapsize="{swap_size}"\n')
                 f.write("export TARGET_DISK rootsize swapyn swapsize\n")
-            subprocess.run(["bash", "/usr/local/share/bash/partitionscript"], check=True)
+            # partition_result = subprocess.run(["bash", "/usr/local/share/bash/partitionscript"], capture_output = True, check=True)
+        
+            if partition_result.returncode == 0:
+                install()
+            else:
+                print("Partitioning failed!")
+        
         except subprocess.CalledProcessError as e:
             print(f"Error setting time/layout: {e}")
             
@@ -258,6 +262,7 @@ def install_drivers():
     global gpu_command
     global drivers
     drivers = gpu_command
+    # savedisk()
 
 def page1():
     layout_format()
@@ -362,7 +367,7 @@ window.yesgpu.clicked.connect(install_drivers)
 window.savetime.clicked.connect(on_save_clicked)
 window.comboZone.addItems(timezones)
 window.comboDisk.addItems(d[0] for d in disks)
-window.savedisks.clicked.connect(page_turn)
+window.savedisks.clicked.connect(next_clicked)
 
 window.show()
 window.stackedWidget.setCurrentIndex(0)
