@@ -21,6 +21,8 @@ disks = []
 layouts = []
 subprocess.run(["systemctl", "start", "NetworkManager"], check=True)
 connected = False
+gpu_command = ""
+
 
 datadisk = subprocess.check_output(
     ["lsblk", "-dn", "-o", "NAME,MODEL,SIZE,TYPE", "-J"],
@@ -116,6 +118,17 @@ def next_clicked():
     global page
     page += 1
     print(page)
+    page_turn()
+
+def back():
+    print("back was clicked")
+    global page
+    page -= 1
+    print(page)
+    window.stackedWidget.setCurrentIndex(page)
+    page_turn()
+
+def page_turn():
     if page == 1:
         print("page1")
         page1()
@@ -284,29 +297,34 @@ def page3():
         item.setText(text + connected_icon)
         window.wifiList.addItem(item)
 
+
+
 def page5():
-    window.stackedWidget.setCurrentIndex(4)
+    global gpu_command
+    window.stackedWidget.setCurrentIndex(5)
+
     gpu_vendor = subprocess.check_output("lspci | grep -E 'VGA|3D'", shell=True, text=True)
     print(gpu_vendor)
     
     if "NVIDIA" in gpu_vendor:
         gpu_vendor = "An NVIDIA GPU"
-        gpu_command = "nvidia-dkms nvidia-utils, lib32-nvidia-utils, egl-wayland"
-        window.labelGpu.setText(gpu_vendor + "was detected")
+        gpu_command = "nvidia-dkms nvidia-utils lib32-nvidia-utils egl-wayland"
+        window.labelGpu.setText(gpu_vendor + " was detected")
     elif "AMD" in gpu_vendor:
         gpu_vendor = "AMD Radeon"
         gpu_command = "mesa lib32-mesa vulkan-radeon lib32-vulkan-radeon libva-mesa-driver"
-        window.labelGpu.setText(gpu_vendor + "was detected")
+        window.labelGpu.setText(gpu_vendor + " was detected")
     elif "Intel" in gpu_vendor:
         gpu_vendor = "Intel Graphics"
         gpu_command = "mesa lib32-mesa vulkan-intel lib32-vulkan-intel intel-media-drivers"
-        window.labelGpu.setText(gpu_vendor + "was detected")
+        window.labelGpu.setText(gpu_vendor + " was detected")
     else:
         gpu_vendor = "Unknown"
         gpu_command = "mesa"
         window.labelGpu.setText("No specific GPU detected.")
 
     print(gpu_command)
+
 
 
 
@@ -323,8 +341,13 @@ file.close()
 apply_style(window)
 window.wifiList.itemSelectionChanged.connect(log_item)
 
+window.back1.clicked.connect(back)
+window.back2.clicked.connect(back)
+window.back3.clicked.connect(back)
+window.back5.clicked.connect(back)
+
 window.next4.clicked.connect(next_clicked)
-window.cancelInternet.clicked.connect(back_wifi)
+window.back4.clicked.connect(back_wifi)
 window.nextInternet.clicked.connect(next_internet)
 window.connect_button.clicked.connect(connect_wifi)
 window.refreshn.clicked.connect(page3)
@@ -333,6 +356,8 @@ window.ethernetCheck.toggled.connect(toggle_ethernet)
 toggle_swap(window.swapCheck.isChecked())
 next_btn = window.findChild(QPushButton, "nextButton")
 next_btn.clicked.connect(next_clicked)
+# window.yesgpu.clicked.connect(install_drivers)
+
 
 window.show()
 window.stackedWidget.setCurrentIndex(0)
