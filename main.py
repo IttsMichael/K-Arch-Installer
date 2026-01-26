@@ -54,7 +54,7 @@ def toggle_swap(enabled: bool):
 def savedisk():
     
     def run_partition():
-        next_clicked()
+        next_clicked(0)
         
         idxdisks = window.comboDisk.currentIndex()
         pathdisk = disks[idxdisks][1]
@@ -113,14 +113,17 @@ def save_time():
 
     threading.Thread(target=run_commands, daemon=True).start()
 
-def next_clicked():
+def next_clicked(plus=0):
+    if isinstance(plus, bool):
+        plus = 0
     print("next was clicked")
     global page
-    page += 1
+    page += 1 + plus
     print(page)
+    window.stackedWidget.setCurrentIndex(page)
     page_turn()
 
-def back():
+def back(checked=False):
     print("back was clicked")
     global page
     page -= 1
@@ -140,14 +143,13 @@ def page_turn():
         page3()
     elif page == 4:
         print("page4")
-        window.stackedWidget.setCurrentIndex(4)
     elif page == 5:
         print("page5")
         page5()
 
 def on_save_clicked():
     save_time()
-    next_clicked()
+    next_clicked(0)
 
 def disconnect_wifi():
     subprocess.run(
@@ -239,34 +241,21 @@ def toggle_ethernet(enabled = bool):
 def next_internet():
     global connected
     if connected == True:
-        page == 5
-        window.stackedWidget.setCurrentIndex(5)
+        next_clicked(1)
     else:
-        next_clicked()
+        next_clicked(0)
 
-def back_wifi():
-    global page
-    page = 3
-    window.stackedWidget.setCurrentIndex(3)
-        
 
 
 def page1():
     layout_format()
-    window.savetime.clicked.connect(on_save_clicked)
-    window.stackedWidget.setCurrentIndex(1)
-    window.comboZone.addItems(timezones)
-    window.savetime.clicked.connect(save_time)
 
 def page2():
-    window.stackedWidget.setCurrentIndex(2)
-    window.comboDisk.addItems(d[0] for d in disks)
-    window.savedisks.clicked.connect(savedisk)
+    pass
 
 
 def page3():
     global wifi_status
-    window.stackedWidget.setCurrentIndex(3)
     window.wifiList.clear()
     status = subprocess.check_output(
     ["nmcli", "-t", "-f", "STATE", "general"],
@@ -301,7 +290,6 @@ def page3():
 
 def page5():
     global gpu_command
-    window.stackedWidget.setCurrentIndex(5)
 
     gpu_vendor = subprocess.check_output("lspci | grep -E 'VGA|3D'", shell=True, text=True)
     print(gpu_vendor)
@@ -347,7 +335,7 @@ window.back3.clicked.connect(back)
 window.back5.clicked.connect(back)
 
 window.next4.clicked.connect(next_clicked)
-window.back4.clicked.connect(back_wifi)
+window.back4.clicked.connect(back)
 window.nextInternet.clicked.connect(next_internet)
 window.connect_button.clicked.connect(connect_wifi)
 window.refreshn.clicked.connect(page3)
@@ -359,8 +347,14 @@ next_btn.clicked.connect(next_clicked)
 # window.yesgpu.clicked.connect(install_drivers)
 
 
+window.savetime.clicked.connect(on_save_clicked)
+window.comboZone.addItems(timezones)
+window.comboDisk.addItems(d[0] for d in disks)
+window.savedisks.clicked.connect(savedisk)
+
 window.show()
 window.stackedWidget.setCurrentIndex(0)
+page_turn() # Ensure first page is initialized
 sys.exit(app.exec())
 
 
