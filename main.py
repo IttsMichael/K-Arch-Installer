@@ -4,7 +4,6 @@ import subprocess
 import sys
 import os
 import json
-import subprocess
 import threading
 from style import apply_style
 from PySide6.QtCore import QTimer
@@ -52,7 +51,7 @@ def install():
     global drivers
     base_cmd = ["pacstrap", "-K", "/mnt", "base", "linux-cachyos", "linux-firmware", "linux-cachyos-headers"]
     full_command = base_cmd + gpu_command.split()
-    # subprocess.run(full_command)
+    subprocess.run(full_command, check=True)
 
 def toggle_swap(enabled: bool):
     window.spinSwap.setEnabled(enabled)
@@ -78,7 +77,15 @@ def savedisk():
                 f.write(f'swapyn="{swapyn}"\n')
                 f.write(f'swapsize="{swap_size}"\n')
                 f.write("export TARGET_DISK rootsize swapyn swapsize\n")
-            # partition_result = subprocess.run(["bash", "/usr/local/share/bash/partitionscript"], capture_output = True, check=True)
+                
+            bash_dir = os.path.join(base_dir, "bash")
+            partition_script = os.path.join(bash_dir, "partitionscript")
+            
+            env = os.environ.copy()
+            env["VARS_FILE"] = vars_path
+            env["BASH_SCRIPTS_DIR"] = bash_dir
+            
+            partition_result = subprocess.run(["bash", partition_script], env=env, capture_output=False, check=False)
         
             if partition_result.returncode == 0:
                 install()
@@ -262,7 +269,7 @@ def install_drivers():
     global gpu_command
     global drivers
     drivers = gpu_command
-    # savedisk()
+    savedisk()
 
 def page1():
     layout_format()
