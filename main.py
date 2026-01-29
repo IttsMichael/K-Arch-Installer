@@ -56,10 +56,10 @@ def install():
     global drivers
     base_cmd = ["pacstrap", "-K", "/mnt", "base", "linux-cachyos", "linux-firmware", "linux-cachyos-headers"]
     full_command = base_cmd + gpu_command.split()
-    installation = subprocess.run(full_command, env=env, capture_output=False, check=False))
+    installation = subprocess.run(full_command, capture_output=False, check=False)
 
     if installation.returncode == 0:
-        maake_user()
+        make_user()
     else:
         print("Installation Failed!")
 
@@ -73,11 +73,10 @@ def make_user():
     subprocess.run(
         ["arch-chroot", "/mnt", "chpasswd"],
         input=auth_string.encode(), 
-        check=True
+        check=True)
 
     subprocess.run(["arch-chroot", "/mnt", "chpasswd"], 
                input=f"root:{root_pass}".encode(), check=True)
-    )
 
 
 def toggle_swap(enabled: bool):
@@ -112,7 +111,7 @@ def savedisk():
             env["VARS_FILE"] = vars_path
             env["BASH_SCRIPTS_DIR"] = bash_dir
             
-            # partition_result = subprocess.run(["bash", partition_script], env=env, capture_output=False, check=False)
+            partition_result = subprocess.run(["bash", partition_script], env=env, capture_output=False, check=False)
         
             if partition_result.returncode == 0:
                 install()
@@ -438,7 +437,7 @@ window.skipLogin.clicked.connect(next_clicked)
 window.previous1.clicked.connect(back)
 window.saveUser.clicked.connect(save_user)
 window.previous2.clicked.connect(back)
-window.installButton.clicked.connect(save_disk)
+window.installButton.clicked.connect(savedisk)
 
 
 window.savetime.clicked.connect(on_save_clicked)
