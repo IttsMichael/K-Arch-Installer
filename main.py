@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 #a
+from uuid import RESERVED_MICROSOFT
 import subprocess
 import sys
 import os
@@ -23,6 +24,9 @@ layouts = []
 subprocess.run(["systemctl", "start", "NetworkManager"], check=True)
 connected = False
 gpu_command = ""
+user = "root"
+paassword = "root"
+sudo = True
 
 
 datadisk = subprocess.check_output(
@@ -51,7 +55,7 @@ def install():
     global drivers
     base_cmd = ["pacstrap", "-K", "/mnt", "base", "linux-cachyos", "linux-firmware", "linux-cachyos-headers"]
     full_command = base_cmd + gpu_command.split()
-    subprocess.run(full_command, check=True)
+    # subprocess.run(full_command, check=True)
 
 def toggle_swap(enabled: bool):
     window.spinSwap.setEnabled(enabled)
@@ -85,7 +89,7 @@ def savedisk():
             env["VARS_FILE"] = vars_path
             env["BASH_SCRIPTS_DIR"] = bash_dir
             
-            partition_result = subprocess.run(["bash", partition_script], env=env, capture_output=False, check=False)
+            # partition_result = subprocess.run(["bash", partition_script], env=env, capture_output=False, check=False)
         
             if partition_result.returncode == 0:
                 install()
@@ -269,7 +273,27 @@ def install_drivers():
     global gpu_command
     global drivers
     drivers = gpu_command
-    savedisk()
+    next_clicked()
+
+
+def save_user():
+    global user
+    global password
+    usertest = window.userLine.text().strip()
+    passwordtest = window.passLine.text().strip()
+    passconfirm = window.pass2Line.text().strip()
+
+    if not usertest:
+        print("user empty")
+    else:
+        if passwordtest == passconfirm and passwordtest != "":
+            user = usertest
+            password = passwordtest
+            print(user)
+            print(password)
+        else:
+            print("password empty or doesnt match")
+
 
 def page1():
     layout_format()
@@ -328,7 +352,7 @@ def page5():
         window.labelGpu.setText(gpu_vendor + " was detected")
     elif "Intel" in gpu_vendor:
         gpu_vendor = "Intel Graphics"
-        gpu_command = "mesa lib32-mesa vulkan-intel lib32-vulkan-intel intel-media-drivers"
+        gpu_command = "mesa vulkan-intel"
         window.labelGpu.setText(gpu_vendor + " was detected")
     else:
         gpu_vendor = "Unknown"
@@ -336,6 +360,9 @@ def page5():
         window.labelGpu.setText("No specific GPU detected.")
 
     print(gpu_command)
+
+# def page6():
+
 
 
 
@@ -369,6 +396,10 @@ toggle_swap(window.swapCheck.isChecked())
 next_btn = window.findChild(QPushButton, "nextButton")
 next_btn.clicked.connect(next_clicked)
 window.yesgpu.clicked.connect(install_drivers)
+window.nogpu.clicked.connect(next_clicked)
+window.skipLogin.clicked.connect(next_clicked)
+window.previous1.clicked.connect(back)
+window.saveUser.clicked.connect(save_user)
 
 
 window.savetime.clicked.connect(on_save_clicked)
