@@ -914,6 +914,32 @@ QListWidget:disabled {
       <string> </string>
      </property>
     </widget>
+    <widget class="QPushButton" name="previous2">
+     <property name="geometry">
+      <rect>
+       <x>20</x>
+       <y>350</y>
+       <width>88</width>
+       <height>34</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>Previous</string>
+     </property>
+    </widget>
+    <widget class="QPushButton" name="installButton">
+     <property name="geometry">
+      <rect>
+       <x>400</x>
+       <y>350</y>
+       <width>88</width>
+       <height>34</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>Install</string>
+     </property>
+    </widget>
    </widget>
   </widget>
  </widget>

@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 #a
+import subprocess
 from uuid import RESERVED_MICROSOFT
 import subprocess
 import sys
@@ -55,7 +56,29 @@ def install():
     global drivers
     base_cmd = ["pacstrap", "-K", "/mnt", "base", "linux-cachyos", "linux-firmware", "linux-cachyos-headers"]
     full_command = base_cmd + gpu_command.split()
-    # subprocess.run(full_command, check=True)
+    installation = subprocess.run(full_command, env=env, capture_output=False, check=False))
+
+    if installation.returncode == 0:
+        maake_user()
+    else:
+        print("Installation Failed!")
+
+def make_user():
+    global user
+    global password
+    root_pass = "root"
+    subprocess.run(["arch-chroot", "/mnt", "useradd", "-m", user], check=True)
+    
+    auth_string = f"{user}:{password}"
+    subprocess.run(
+        ["arch-chroot", "/mnt", "chpasswd"],
+        input=auth_string.encode(), 
+        check=True
+
+    subprocess.run(["arch-chroot", "/mnt", "chpasswd"], 
+               input=f"root:{root_pass}".encode(), check=True)
+    )
+
 
 def toggle_swap(enabled: bool):
     window.spinSwap.setEnabled(enabled)
@@ -97,7 +120,7 @@ def savedisk():
                 print("Partitioning failed!")
         
         except subprocess.CalledProcessError as e:
-            print(f"Error setting time/layout: {e}")
+            print(f"{e}")
             
     threading.Thread(target=run_partition, daemon=True).start()
     
@@ -414,6 +437,8 @@ window.nogpu.clicked.connect(next_clicked)
 window.skipLogin.clicked.connect(next_clicked)
 window.previous1.clicked.connect(back)
 window.saveUser.clicked.connect(save_user)
+window.previous2.clicked.connect(back)
+window.installButton.clicked.connect(save_disk)
 
 
 window.savetime.clicked.connect(on_save_clicked)
