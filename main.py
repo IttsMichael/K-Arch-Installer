@@ -170,6 +170,11 @@ def page_turn():
     elif page == 5:
         print("page5")
         page5()
+    elif page == 6:
+        print("page6")
+    elif page == 7:
+        print("page7")
+        page7()
 
 def on_save_clicked():
     save_time()
@@ -284,15 +289,16 @@ def save_user():
     passconfirm = window.pass2Line.text().strip()
 
     if not usertest:
-        print("user empty")
+        window.empty.setText("User can't be empty")
     else:
         if passwordtest == passconfirm and passwordtest != "":
             user = usertest
             password = passwordtest
             print(user)
             print(password)
+            next_clicked()
         else:
-            print("password empty or doesnt match")
+            window.passMis.setText("Password empty or doesn't match")
 
 
 def page1():
@@ -361,7 +367,15 @@ def page5():
 
     print(gpu_command)
 
-# def page6():
+def page7():
+    global user
+    disk_overview = window.comboDisk.currentText()
+    root_size = window.spinRoot.value()
+    print(disk_overview)
+    print(root_size)
+    window.ovDisk.setText("Selected Disk: " + disk_overview)
+    window.ovRoot.setText("Root Size: " + str(root_size) + "MiB")
+    window.ovUser.setText("Useraccount:  " + user)
 
 
 
