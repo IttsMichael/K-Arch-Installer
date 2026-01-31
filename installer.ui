@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>521</width>
-    <height>421</height>
+    <width>526</width>
+    <height>422</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -631,7 +631,7 @@ QListWidget:disabled {
       </rect>
      </property>
      <property name="text">
-      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;We recommend the proprietary drivers for best performance.&lt;/p&gt;&lt;p&gt;Install NVIDIA proprietary drivers?&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;We recommend the proprietary drivers for best performance.&lt;/p&gt;&lt;p&gt;Install proprietary drivers?&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
      </property>
     </widget>
     <widget class="QPushButton" name="yesgpu">
