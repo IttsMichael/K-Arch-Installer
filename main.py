@@ -30,6 +30,10 @@ gpu_command = ""
 user = "root"
 password = "root"
 sudo = True
+installing = False
+dev = False
+gaming = False
+template = False
 
 
 datadisk = subprocess.check_output(
@@ -41,12 +45,12 @@ timezones = subprocess.check_output(
     ["timedatectl", "list-timezones"],
     text=True).splitlines()
 
-for dev in json.loads(datadisk)["blockdevices"]:
-    if dev ["type"] == "disk":
-        model = dev["model"] or "Unknown device"
+for device in json.loads(datadisk)["blockdevices"]:
+    if device ["type"] == "disk":
+        model = device["model"] or "Unknown device"
         model = model.replace("_", " ").strip()
-        size = dev["size"]
-        name = dev["name"]
+        size = device["size"]
+        name = device["name"]
 
         displaydisk = f"{model} ({size}) - /dev/{name}"
         pathdisk = f"/dev/{name}"
@@ -55,15 +59,35 @@ for dev in json.loads(datadisk)["blockdevices"]:
 
 
 def install():
+    global installing
+    installing = True
     window.installStatus.setText("Installing packages...")
     global drivers
+    global template
+    global gaming
+    global dev
+    add = ""
+    if template == True:
+        if dev == True:
+            add = "git wget curl docker docker-compose neovim tmux vim python nodejs npm go rustup ripgrep fzf htop zsh"
+
     print("Starting base installation...")
     base_cmd = ["pacstrap", "-K", "/mnt", "base", "linux-cachyos", "linux-firmware", "linux-cachyos-headers", "base-devel",
-    "networkmanager", "plasma-desktop", "sddm", "firefox", "konsole", "dolphin", "fastfetch", "imagemagick"]
-    full_command = base_cmd + drivers.split()
+    "networkmanager", "vim", "plasma-desktop", "sddm", "firefox", "konsole", "dolphin", "fastfetch", "imagemagick"]
+    full_command = base_cmd + drivers.split() + add.split()
     
     try:
         installation = subprocess.run(full_command, capture_output=False, check=True)
+
+        if gaming == True:
+            print("Enabling multilib..")
+            sed_cmd = [
+            "sed", "-i", 
+            "/#\[multilib\]/,/#Include = \/etc\/pacman.conf.d\/mirrorlist/ s/^#//", 
+            "/mnt/etc/pacman.conf"
+            ]
+            subprocess.run(sed_cmd, check=True)
+            subprocess.run(["pacstrap", "-K", "/mnt", "steam", "wine", "wine-staging", "giflib", "lutris",])
         
         print("Generating fstab...")
         window.installStatus.setText("Generating fstab...")
@@ -78,6 +102,7 @@ def install():
         window.installStatus.setText("Post install configuration...")
         print("Running post-install configuration...")
         make_user()
+        save_time()
         
         window.installStatus.setText("Installing bootloader...")
         print("Installing bootloader...")
@@ -189,6 +214,7 @@ def layout_format():
 
 
 def save_time():
+    global installing
     layout_code = window.comboLayout.currentData()
     idxtime = window.comboZone.currentText()
     
@@ -198,6 +224,30 @@ def save_time():
                 subprocess.run(["localectl", "set-keymap", layout_code], check=True)
             
             subprocess.run(["timedatectl", "set-timezone", idxtime], check=True)
+
+            if installing == True:
+                if os.path.exists("/mnt/etc"):
+                    
+                    zone_path = f"/usr/share/zoneinfo/{idxtime}"
+                    if os.path.exists(zone_path):
+                        subprocess.run(["ln", "-sf", zone_path, "/mnt/etc/localtime"], check=True)
+                        subprocess.run(["arch-chroot", "/mnt", "hwclock", "--systohc"], check=True)
+                    
+                    
+                    if layout_code:
+                        with open("/mnt/etc/vconsole.conf", "w") as f:
+                            f.write(f"KEYMAP={layout_code}\n")
+
+                        # X11 layout config
+                        x11_conf_dir = "/mnt/etc/X11/xorg.conf.d"
+                        os.makedirs(x11_conf_dir, exist_ok=True)
+                        with open(os.path.join(x11_conf_dir, "00-keyboard.conf"), "w") as f:
+                            f.write('Section "InputClass"\n')
+                            f.write('        Identifier "system-keyboard"\n')
+                            f.write('        MatchIsKeyboard "on"\n')
+                            f.write(f'        Option "XkbLayout" "{layout_code}"\n')
+                            f.write('EndSection\n')
+
             print("Time and layout updated.")
         except subprocess.CalledProcessError as e:
             print(f"Error setting time/layout: {e}")
@@ -241,7 +291,10 @@ def page_turn():
         print("page6")
     elif page == 7:
         print("page7")
-        page7()
+    elif page == 8:
+        print("page8")
+        page8()
+    
 
 def on_save_clicked():
     save_time()
@@ -370,6 +423,18 @@ def save_user():
 def reboot():
     subprocess.run(["reboot"], shell=True, check=True)
 
+def toggle_dev(enabled = bool):
+    global dev
+    dev = enabled
+
+def toggle_gaming(enabled = bool):
+    global gaming
+    gaming = enabled
+
+def save_template():
+    global template
+    template = True
+
 
 def page1():
     layout_format()
@@ -437,7 +502,7 @@ def page5():
 
     print(gpu_command)
 
-def page7():
+def page8():
     global user
     disk_overview = window.comboDisk.currentText()
     root_size = window.spinRoot.value()
@@ -487,7 +552,11 @@ window.saveUser.clicked.connect(save_user)
 window.previous2.clicked.connect(back)
 window.installButton.clicked.connect(savedisk)
 window.rebootButton.clicked.connect(reboot)
-
+window.previousidk.clicked.connect(back)
+window.saveTemplate.clicked.connect(save_template)
+window.skipTemplate.clicked.connect(next_clicked)
+window.checkDev.toggled.connect(toggle_dev)
+window.swapGaming.toggled.connect(toggle_gaming)
 
 window.savetime.clicked.connect(on_save_clicked)
 window.comboZone.addItems(timezones)
