@@ -34,6 +34,7 @@ dev = False
 gaming = False
 template = False
 useryn = False
+uefi = True
 
 
 
@@ -61,6 +62,7 @@ for device in json.loads(datadisk)["blockdevices"]:
 
 def install():
     global installing
+    global uefi
     installing = True
     window.installStatus.setText("Installing packages...")
     global drivers
@@ -75,7 +77,7 @@ def install():
     print("Starting base installation...")
     base_cmd = ["pacstrap", "-K", "/mnt", "base", "linux-cachyos", "linux-firmware", "linux-cachyos-headers", "base-devel",
     "networkmanager", "vim", "plasma-desktop", "sddm", "firefox", "konsole", "dolphin",
-    "fastfetch", "imagemagick", "karch-updater", "pacman-contrib", "libadwaita"]
+    "fastfetch", "imagemagick", "karch-updater", "pacman-contrib", "libadwaita", "intel-ucode", "amd-ucode"]
     full_command = base_cmd + drivers.split() + add.split()
     
     try:
@@ -116,9 +118,14 @@ def install():
         make_user()
         save_time()
         
-        window.installStatus.setText("Installing bootloader...")
-        print("Installing bootloader...")
-        subprocess.run(["arch-chroot", "/mnt", "/usr/local/bin/installgrub"], check=True)
+        if uefi == True:
+            window.installStatus.setText("Installing bootloader...")
+            print("Installing bootloader...")
+            subprocess.run(["arch-chroot", "/mnt", "/usr/local/bin/installgrub"], check=True)
+        else:
+            window.installStatus.setText("Installing bootloader...")
+            print("Installing bootloader...")
+            subprocess.run(["arch-chroot", "/mnt", "/usr/local/bin/grublegacy"], check=True)
 
         window.installStatus.setText("Enabling display manager...")
         print("enabling display manager")
@@ -161,13 +168,16 @@ def toggle_swap(enabled: bool):
     window.spinSwap.setEnabled(enabled)
 
 def check_uefi():
+    global uefi
     try:
         if os.path.exists("/sys/firmware/efi/"):
             print("UEFI detected")
+            uefi = True
             next_clicked()
         else:
             print("Legacy BIOS detected")
-            window.stackedWidget.setCurrentIndex(12)
+            uefi = False
+            next_clicked()
     except Exception as e:
         print(f"Error checking BIOS mode: {e}")
         return None
@@ -189,6 +199,7 @@ def savedisk():
         swapyn = "y" if swap_enabled else "n"
         root_enabled = window.rootCheck.isChecked()
         rootyn = "y" if root_enabled else "n"
+        uefiyn = "y" if uefi else "n"
         vars_path = os.path.join(base_dir, "disk.sh")
 
         try:
@@ -198,7 +209,8 @@ def savedisk():
                 f.write(f'swapyn="{swapyn}"\n')
                 f.write(f'rootyn="{rootyn}"\n')
                 f.write(f'swapsize="{swap_size}"\n')
-                f.write("export TARGET_DISK rootsize swapyn swapsize rootyn\n")
+                f.write(f'uefiyn="{uefiyn}"\n')
+                f.write("export TARGET_DISK rootsize swapyn swapsize rootyn uefiyn\n")
                 
             bash_dir = os.path.join(base_dir, "bash")
             partition_script = os.path.join(bash_dir, "partitionscript")
@@ -523,7 +535,7 @@ def page5():
     
     if "NVIDIA" in gpu_vendor:
         gpu_vendor = "An NVIDIA GPU"
-        gpu_command = "nvidia-dkms nvidia-utils lib32-nvidia-utils egl-wayland"
+        gpu_command = "nvidia-dkms nvidia-utils"
         window.labelGpu.setText(gpu_vendor + " was detected")
     elif "AMD" in gpu_vendor:
         gpu_vendor = "AMD Radeon"
