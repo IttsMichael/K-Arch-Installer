@@ -229,9 +229,10 @@ def make_user():
         log_command(["arch-chroot", "/mnt", "useradd", "-m", "-G", "wheel", user])
     
     auth_string = f"{user}:{password}\nroot:{root_pass}\n"
-    log_command(
+    subprocess.run(
         ["arch-chroot", "/mnt", "chpasswd"],
-        input=auth_string.encode() if isinstance(auth_string, str) else auth_string)
+        input=auth_string.encode(), 
+        check=True)
     
     # Enable sudo for wheel group
     log_command(["arch-chroot", "/mnt", "sed", "-i", "s/^# %wheel ALL=(ALL:ALL) ALL/%wheel ALL=(ALL:ALL) ALL/", "/etc/sudoers"])
