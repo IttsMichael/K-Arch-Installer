@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 #a
+import logging
+from datetime import datetime
 import subprocess
 from uuid import RESERVED_MICROSOFT
 import subprocess
@@ -18,12 +20,84 @@ from PySide6.QtGui import QMovie
 
 base_dir = os.path.dirname(os.path.abspath(__file__))
 spinner_path = os.path.join(base_dir, "images", "spinner.gif")
+
+# --- Logging Setup ---
+log_file = "/tmp/k-arch-install.log"
+
+class Tee:
+    def __init__(self, filename, stream):
+        self.file = open(filename, 'a')
+        self.stream = stream
+
+    def write(self, message):
+        self.file.write(message)
+        self.stream.write(message)
+        self.file.flush()
+        self.stream.flush()
+
+    def flush(self):
+        self.file.flush()
+        self.stream.flush()
+
+    def isatty(self):
+        return self.stream.isatty()
+
+# Redirect stdout and stderr
+sys.stdout = Tee(log_file, sys.stdout)
+sys.stderr = Tee(log_file, sys.stderr)
+
+def log_command(cmd, **kwargs):
+    """Run a command and log its execution in real-time."""
+    print(f"\n[EXEC] {' '.join(cmd) if isinstance(cmd, list) else cmd}")
+    
+    # Check if we need to return the output (like for lsblk or timedatectl)
+    if kwargs.get('capture_output'):
+        kwargs.pop('capture_output') # remove it for check_output or Popen
+        try:
+            # We use check_output for simple capture and return
+            output = subprocess.check_output(cmd, text=True, **kwargs)
+            # print it so Tee sees it
+            print(output)
+            return type('Result', (), {'stdout': output})()
+        except subprocess.CalledProcessError as e:
+            print(f"[ERROR] Command failed with return code {e.returncode}")
+            raise
+
+    try:
+        # For long-running commands, use Popen to capture real-time
+        # We merge stderr into stdout for a unified log
+        process = subprocess.Popen(
+            cmd, 
+            stdout=subprocess.PIPE, 
+            stderr=subprocess.STDOUT, 
+            text=True, 
+            bufsize=1, 
+            universal_newlines=True,
+            **kwargs
+        )
+        
+        # Read output line by line
+        for line in process.stdout:
+            print(line, end='') # Use end='' because line already has newline
+            
+        process.wait()
+        
+        if process.returncode != 0:
+            print(f"[ERROR] Command failed with return code {process.returncode}")
+            raise subprocess.CalledProcessError(process.returncode, cmd)
+            
+        return type('Result', (), {'returncode': 0})()
+    except Exception as e:
+        if not isinstance(e, subprocess.CalledProcessError):
+            print(f"[ERROR] Execution failed: {e}")
+        raise
+
 drivers = " "
 page = 0
 wifi_status = "Disconnected"
 disks = []
 layouts = []
-subprocess.run(["systemctl", "start", "NetworkManager"], check=True)
+log_command(["systemctl", "start", "NetworkManager"])
 connected = False
 gpu_command = ""
 user = "root"
@@ -38,14 +112,14 @@ uefi = True
 
 
 
-datadisk = subprocess.check_output(
+datadisk = log_command(
     ["lsblk", "-dn", "-o", "NAME,MODEL,SIZE,TYPE", "-J"],
-    text=True
-)
+    capture_output=True
+).stdout
 
-timezones = subprocess.check_output(
+timezones = log_command(
     ["timedatectl", "list-timezones"],
-    text=True).splitlines()
+    capture_output=True).stdout.splitlines()
 
 for device in json.loads(datadisk)["blockdevices"]:
     if device ["type"] == "disk":
@@ -81,7 +155,7 @@ def install():
     full_command = base_cmd + drivers.split() + add.split()
     
     try:
-        installation = subprocess.run(full_command, capture_output=False, check=True)
+        installation = log_command(full_command)
 
         if gaming == True:
             print("Enabling multilib...")    
@@ -94,10 +168,10 @@ def install():
             ]
 
             try:
-                subprocess.run(sed_cmd, check=True)
+                log_command(sed_cmd)
                 print("Multilib enabled successfully.")
                 print("Installing gaming packages...")
-                subprocess.run(["pacstrap", "-K", "/mnt", "steam", "wine",  "giflib",
+                log_command(["pacstrap", "-K", "/mnt", "steam", "wine",  "giflib",
                 "lutris", "discord", "openrgb", "gamemode"])
             except subprocess.CalledProcessError:
                 print("Error: Could not modify pacman.conf. Check if /mnt is mounted.")
@@ -111,7 +185,7 @@ def install():
         window.installStatus.setText("Copying installer scripts...")
         print("Copying installer scripts...")
         bash_dir = os.path.join(base_dir, "bash")
-        subprocess.run(["bash", os.path.join(bash_dir, "copyscripts")], check=True)
+        log_command(["bash", os.path.join(bash_dir, "copyscripts")])
         
         window.installStatus.setText("Post install configuration...")
         print("Running post-install configuration...")
@@ -121,19 +195,19 @@ def install():
         if uefi == True:
             window.installStatus.setText("Installing bootloader...")
             print("Installing bootloader...")
-            subprocess.run(["arch-chroot", "/mnt", "/usr/local/bin/installgrub"], check=True)
+            log_command(["arch-chroot", "/mnt", "/usr/local/bin/installgrub"])
         else:
             window.installStatus.setText("Installing bootloader...")
             print("Installing bootloader...")
-            subprocess.run(["arch-chroot", "/mnt", "/usr/local/bin/grublegacy"], check=True)
+            log_command(["arch-chroot", "/mnt", "/usr/local/bin/grublegacy"])
 
         window.installStatus.setText("Enabling display manager...")
         print("enabling display manager")
-        subprocess.run(["arch-chroot", "/mnt", "systemctl", "enable", "sddm"], check=True)
+        log_command(["arch-chroot", "/mnt", "systemctl", "enable", "sddm"])
 
         window.installStatus.setText("Enabling network manager...")
         print("enabling network manager")
-        subprocess.run(["arch-chroot", "/mnt", "systemctl", "enable", "NetworkManager"], check=True)
+        log_command(["arch-chroot", "/mnt", "systemctl", "enable", "NetworkManager"])
         
         print("Installation finished successfully!")
         next_clicked()
@@ -152,16 +226,15 @@ def make_user():
     if useryn == True:
         window.installStatus.setText("Creating user " + user)
         print(f"Creating user {user}...")
-        subprocess.run(["arch-chroot", "/mnt", "useradd", "-m", "-G", "wheel", user], check=True)
+        log_command(["arch-chroot", "/mnt", "useradd", "-m", "-G", "wheel", user])
     
     auth_string = f"{user}:{password}\nroot:{root_pass}\n"
-    subprocess.run(
+    log_command(
         ["arch-chroot", "/mnt", "chpasswd"],
-        input=auth_string.encode(), 
-        check=True)
+        input=auth_string.encode() if isinstance(auth_string, str) else auth_string)
     
     # Enable sudo for wheel group
-    subprocess.run(["arch-chroot", "/mnt", "sed", "-i", "s/^# %wheel ALL=(ALL:ALL) ALL/%wheel ALL=(ALL:ALL) ALL/", "/etc/sudoers"], check=True)
+    log_command(["arch-chroot", "/mnt", "sed", "-i", "s/^# %wheel ALL=(ALL:ALL) ALL/%wheel ALL=(ALL:ALL) ALL/", "/etc/sudoers"])
 
 
 def toggle_swap(enabled: bool):
@@ -219,7 +292,7 @@ def savedisk():
             env["VARS_FILE"] = vars_path
             env["BASH_SCRIPTS_DIR"] = bash_dir
             
-            partition_result = subprocess.run(["bash", partition_script], env=env, capture_output=False, check=False)
+            partition_result = log_command(["bash", partition_script], env=env)
         
             if partition_result.returncode == 0:
                 install()
