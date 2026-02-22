@@ -1,14 +1,10 @@
 #!/usr/bin/env python
-#a
-import logging
-from datetime import datetime
-import subprocess
-from uuid import RESERVED_MICROSOFT
 import subprocess
 import sys
 import os
 import json
 import threading
+import re
 from style import apply_style
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QApplication, QPushButton
@@ -19,14 +15,30 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QMovie
 
 base_dir = os.path.dirname(os.path.abspath(__file__))
-spinner_path = os.path.join(base_dir, "images", "spinner.gif")
+
+# Ensure script is running as root
+if os.geteuid() != 0:
+    print("Not running as root. Attempting to restart with sudo...")
+    try:
+        subprocess.check_call(['sudo', '-E', sys.executable] + sys.argv)
+    except subprocess.CalledProcessError as e:
+        print(f"Failed to restart as root: {e}")
+        sys.exit(1)
+    sys.exit(0)
 
 # --- Logging Setup ---
 log_file = "/tmp/k-arch-install.log"
 
 class Tee:
     def __init__(self, filename, stream):
-        self.file = open(filename, 'a')
+        try:
+            self.file = open(filename, 'a')
+        except PermissionError:
+            if os.path.exists(filename):
+                os.remove(filename)
+                self.file = open(filename, 'a')
+            else:
+                raise
         self.stream = stream
 
     def write(self, message):
@@ -49,14 +61,12 @@ sys.stderr = Tee(log_file, sys.stderr)
 def log_command(cmd, **kwargs):
     """Run a command and log its execution in real-time."""
     print(f"\n[EXEC] {' '.join(cmd) if isinstance(cmd, list) else cmd}")
-    
-    # Check if we need to return the output (like for lsblk or timedatectl)
+
+    # Check if we need to return the output (like for lsblk)
     if kwargs.get('capture_output'):
-        kwargs.pop('capture_output') # remove it for check_output or Popen
+        kwargs.pop('capture_output')
         try:
-            # We use check_output for simple capture and return
             output = subprocess.check_output(cmd, text=True, **kwargs)
-            # print it so Tee sees it
             print(output)
             return type('Result', (), {'stdout': output})()
         except subprocess.CalledProcessError as e:
@@ -64,40 +74,41 @@ def log_command(cmd, **kwargs):
             raise
 
     try:
-        # For long-running commands, use Popen to capture real-time
-        # We merge stderr into stdout for a unified log
         process = subprocess.Popen(
-            cmd, 
-            stdout=subprocess.PIPE, 
-            stderr=subprocess.STDOUT, 
-            text=True, 
-            bufsize=1, 
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
             universal_newlines=True,
             **kwargs
         )
-        
-        # Read output line by line
+
         for line in process.stdout:
-            print(line, end='') # Use end='' because line already has newline
-            
+            print(line, end='')
+
         process.wait()
-        
+
         if process.returncode != 0:
             print(f"[ERROR] Command failed with return code {process.returncode}")
             raise subprocess.CalledProcessError(process.returncode, cmd)
-            
+
         return type('Result', (), {'returncode': 0})()
     except Exception as e:
         if not isinstance(e, subprocess.CalledProcessError):
             print(f"[ERROR] Execution failed: {e}")
         raise
 
+spinner_path = os.path.join(base_dir, "images", "spinner.gif")
 drivers = " "
 page = 0
 wifi_status = "Disconnected"
 disks = []
 layouts = []
-log_command(["systemctl", "start", "NetworkManager"])
+try:
+    log_command(["rc-service", "NetworkManager", "start"])
+except Exception:
+    pass
 connected = False
 gpu_command = ""
 user = "root"
@@ -117,9 +128,23 @@ datadisk = log_command(
     capture_output=True
 ).stdout
 
-timezones = log_command(
-    ["timedatectl", "list-timezones"],
-    capture_output=True).stdout.splitlines()
+# Build timezone list from /usr/share/zoneinfo (no timedatectl on OpenRC)
+def list_timezones():
+    tzlist = []
+    zoneinfo = "/usr/share/zoneinfo"
+    exclude = {"posix", "right", "posixrules", "leap-seconds.list", "leapseconds", "tzdata.zi", "zone.tab", "zone1970.tab", "iso3166.tab"}
+    for root, dirs, files in os.walk(zoneinfo):
+        dirs[:] = [d for d in dirs if d not in exclude]
+        for f in files:
+            if f.startswith("."):
+                continue
+            full = os.path.join(root, f)
+            rel = os.path.relpath(full, zoneinfo)
+            tzlist.append(rel)
+    tzlist.sort()
+    return tzlist
+
+timezones = list_timezones()
 
 for device in json.loads(datadisk)["blockdevices"]:
     if device ["type"] == "disk":
@@ -136,87 +161,142 @@ for device in json.loads(datadisk)["blockdevices"]:
 
 def install():
     global installing
-    global uefi
     installing = True
+    uefi = True
+    ttypath = "/mnt/etc/inittab"
+    print("shit ahaha")
+    try:
+        log_command(['sudo', 'rm', '-f', '/etc/resolv.conf'])
+        subprocess.run(['sudo', 'tee', '/etc/resolv.conf'], 
+                    input=b'nameserver 1.1.1.1\n', 
+                    check=True)
+    except subprocess.CalledProcessError as e:
+        print(f"Command failed: {e}")
+
     window.installStatus.setText("Installing packages...")
+    
     global drivers
     global template
     global gaming
     global dev
+    
+    # Base Directory for scripts (assumed defined elsewhere, ensure it's accessible)
+    # base_dir = os.path.dirname(os.path.realpath(__file__)) 
+
     add = ""
-    if template == True:
-        if dev == True:
+    if template:
+        if dev:
             add = "git wget curl docker docker-compose neovim tmux vim python npm go rustup ripgrep fzf htop zsh"
 
+    # key_id = "F3B60748DB35A47"
+    print("gettings keys...")
+    key_commands = [
+        "sudo pacman-key --init",
+        "sudo pacman-key --populate artix archlinux",
+    ]
+
+    print("Initializing and fetching keys...")
+    for cmd in key_commands:
+        try:
+           
+            log_command(cmd.split())
+        except subprocess.CalledProcessError as e:
+            print(f"Error running: {cmd}\nException: {e}")
+
+
     print("Starting base installation...")
-    base_cmd = ["pacstrap", "-K", "/mnt", "base", "linux-cachyos", "linux-firmware", "linux-cachyos-headers", "base-devel",
-    "networkmanager", "vim", "plasma-desktop", "sddm", "firefox", "konsole", "dolphin",
-    "fastfetch", "imagemagick", "karch-updater", "pacman-contrib", "libadwaita", "intel-ucode", "amd-ucode"]
+    base_cmd = [
+        "basestrap", "-G", "-K", "/mnt", 
+        "base", "base-devel", 
+        "linux-cachyos", "linux-cachyos-headers", "linux-firmware", 
+        "openrc", "elogind-openrc", "dbus-openrc", 
+        "artix-archlinux-support", 
+        "networkmanager", "networkmanager-openrc", 
+        "vim", "xfce4", "sddm", "sddm-openrc", 
+        "firefox", "xfce4-terminal", "xfce4-goodies", "fastfetch", 
+        "imagemagick", "pacman-contrib", 
+        "libadwaita", "grub", "efibootmgr", "zramen",
+        "zramen-openrc"
+    ]
+    
+    # Combine lists safely
     full_command = base_cmd + drivers.split() + add.split()
     
     try:
-        installation = log_command(full_command)
+        # 1. Main Package Installation
+        log_command(full_command)
 
-        if gaming == True:
+        # 2. Gaming Section (Multilib handling)
+        if gaming:
             print("Enabling multilib...")    
-            sed_script = r'/^# *\[multilib\]/,/^# *Include/ s/^# *//'
+            # sed_script = r'/^# *\[multilib\]/,/^# *Include/ s/^# *//'
 
-            sed_cmd = [
-                "sed", "-i", 
-                sed_script, 
-                "/mnt/etc/pacman.conf"
-            ]
+            # Enable on the Live ISO (so the current session can find the packages)
+            # subprocess.run(["sed", "-i", sed_script, "/etc/pacman.conf"], check=True)
+            # subprocess.run(["pacman", "-Sy"], check=True)
 
-            try:
-                log_command(sed_cmd)
-                print("Multilib enabled successfully.")
-                print("Installing gaming packages...")
-                log_command(["pacstrap", "-K", "/mnt", "steam", "wine",  "giflib",
-                "lutris", "discord", "openrgb", "gamemode"])
-            except subprocess.CalledProcessError:
-                print("Error: Could not modify pacman.conf. Check if /mnt is mounted.")
+            # Enable on the Target system (for the user's future use)
+            # subprocess.run(["sed", "-i", sed_script, "/mnt/etc/pacman.conf"], check=True)
 
-        
+            print("Installing gaming packages...")
+            # Use basestrap to stay consistent with Artix hooks
+            # subprocess.run([
+            #     "basestrap", "-K", "/mnt", 
+            #     "steam", "wine", "giflib", "lutris", 
+            #     "discord", "openrgb", "gamemode"
+            # ], check=True)
+
+        # 3. Generate FSTAB
         print("Generating fstab...")
         window.installStatus.setText("Generating fstab...")
         with open("/mnt/etc/fstab", "w") as fstab_file:
             subprocess.run(["genfstab", "-U", "/mnt"], stdout=fstab_file, check=True)
             
+        # 4. Copying Scripts
         window.installStatus.setText("Copying installer scripts...")
         print("Copying installer scripts...")
-        bash_dir = os.path.join(base_dir, "bash")
-        log_command(["bash", os.path.join(bash_dir, "copyscripts")])
+        # Ensure base_dir is defined; replacing with common path logic if not
+        try:
+            bash_dir = os.path.join(base_dir, "bash")
+            log_command(["bash", os.path.join(bash_dir, "copyscripts")])
+        except NameError:
+            print("Warning: base_dir not defined. Skipping script copy or use absolute path.")
         
+        # 5. User and Time Configuration
         window.installStatus.setText("Post install configuration...")
         print("Running post-install configuration...")
         make_user()
         save_time()
         
-        if uefi == True:
-            window.installStatus.setText("Installing bootloader...")
-            print("Installing bootloader...")
-            log_command(["arch-chroot", "/mnt", "/usr/local/bin/installgrub"])
-        else:
-            window.installStatus.setText("Installing bootloader...")
-            print("Installing bootloader...")
-            log_command(["arch-chroot", "/mnt", "/usr/local/bin/grublegacy"])
 
-        window.installStatus.setText("Enabling display manager...")
-        print("enabling display manager")
-        log_command(["arch-chroot", "/mnt", "systemctl", "enable", "sddm"])
-
-        window.installStatus.setText("Enabling network manager...")
-        print("enabling network manager")
-        log_command(["arch-chroot", "/mnt", "systemctl", "enable", "NetworkManager"])
         
+        window.installStatus.setText("Installing bootloader...")
+        print("Installing bootloader...")
+        log_command(["artix-chroot", "/mnt", "/usr/local/bin/installgrub"])
+        
+        #    window.installStatus.setText("Installing bootloader...")
+        #    print("Installing bootloader...")
+        #    subprocess.run(["artix-chroot", "/mnt", "/usr/local/bin/grublegacy"], check=True)
+
+        # 7. Enable Services, openrc: lowercase
+        
+        window.installStatus.setText("Enabling services...")
+        print("Enabling OpenRC services...")
+        services = ["dbus", "elogind", "NetworkManager", "sddm", "zramen"]
+        for service in services:
+            log_command(["artix-chroot", "/mnt", "rc-update", "add", service, "default"])
+        
+        print("disabling tty 3-6")
+        print("Installing bootloader...")
+        log_command(["artix-chroot", "/mnt", "/usr/local/bin/tty"])
+
         print("Installation finished successfully!")
         next_clicked()
         window.installButton.setEnabled(True)
 
-        
-        
     except subprocess.CalledProcessError as e:
         print(f"Installation Failed: {e}")
+        window.installStatus.setText(f"Error: {e}")
 
 def make_user():
     global user
@@ -265,6 +345,7 @@ def savedisk():
     
     def run_partition():
         
+        global uefi
         idxdisks = window.comboDisk.currentIndex()
         pathdisk = disks[idxdisks][1]
         root_size = window.spinRoot.value()
@@ -274,7 +355,7 @@ def savedisk():
         root_enabled = window.rootCheck.isChecked()
         rootyn = "y" if root_enabled else "n"
         uefiyn = "y" if uefi else "n"
-        vars_path = os.path.join(base_dir, "disk.sh")
+        vars_path = "/tmp/disk.sh"
 
         try:
             with open(vars_path, "w", encoding="utf-8") as f:
@@ -293,7 +374,10 @@ def savedisk():
             env["VARS_FILE"] = vars_path
             env["BASH_SCRIPTS_DIR"] = bash_dir
             
-            partition_result = log_command(["bash", partition_script], env=env)
+            try:
+                partition_result = log_command(["bash", partition_script], env=env)
+            except subprocess.CalledProcessError as e:
+                partition_result = type('Result', (), {'returncode': e.returncode})()
         
             if partition_result.returncode == 0:
                 install()
@@ -306,7 +390,8 @@ def savedisk():
             print(f"{e}")
             
     threading.Thread(target=run_partition, daemon=True).start()
-    
+
+
 def layout_format():
     window.comboLayout.clear()
 
@@ -326,6 +411,8 @@ def layout_format():
                     layouts.append((name, code))
                     window.comboLayout.addItem(f"{name} — {code}", code)
 
+# unoptimised shitty function but it works
+# nevermind.
 
 def save_time():
     global installing
@@ -334,40 +421,69 @@ def save_time():
     
     def run_commands():
         try:
-            if layout_code in ("us", "de", "fr", "uk", "es", "it"):
-                subprocess.run(["localectl", "set-keymap", layout_code], check=True)
+         
+            if layout_code:
+           
+                try:
+                    log_command(["loadkeys", layout_code])
+                except Exception:
+                    pass
+                try:
+                    log_command(["setxkbmap", layout_code])
+                except Exception:
+                    pass
+                
+                # KDE Plasma Wayland support
+                try:
+                    log_command(["kwriteconfig6", "--file", "kxkbrc", "--group", "Layout", "--key", "LayoutList", layout_code])
+                except Exception:
+                    pass
+                try:
+                    log_command(["kwriteconfig6", "--file", "kxkbrc", "--group", "Layout", "--key", "Use", "true"])
+                except Exception:
+                    pass
+                try:
+                    log_command(["dbus-send", "--session", "--type=method_call", "--dest=org.kde.keyboard", "/Layouts", "org.kde.KeyboardLayouts.reloadConfig"])
+                except Exception:
+                    pass
+                # openrc specific
+                with open("/etc/conf.d/keymaps", "w") as f:
+                    f.write(f'keymap="{layout_code}"\n')
             
-            subprocess.run(["timedatectl", "set-timezone", idxtime], check=True)
+            zone_path = f"/usr/share/zoneinfo/{idxtime}"
+            if os.path.exists(zone_path):
+                log_command(["ln", "-sf", zone_path, "/etc/localtime"])
 
-            if installing == True:
-                if os.path.exists("/mnt/etc"):
+            
+            if installing and os.path.exists("/mnt/etc"):
+                # Timezone
+                if os.path.exists(zone_path):
+                    log_command(["ln", "-sf", zone_path, "/mnt/etc/localtime"])
+                    # Use artix-chroot if available, else arch-chroot
+                    chroot_cmd = "artix-chroot" if os.path.exists("/usr/bin/artix-chroot") else "arch-chroot"
+                    log_command([chroot_cmd, "/mnt", "hwclock", "--systohc"])
+                
+                # Keyboard Layout
+                if layout_code:
+                   
+                    with open("/mnt/etc/conf.d/keymaps", "w") as f:
+                        f.write(f'keymap="{layout_code}"\n')
                     
-                    zone_path = f"/usr/share/zoneinfo/{idxtime}"
-                    if os.path.exists(zone_path):
-                        subprocess.run(["ln", "-sf", zone_path, "/mnt/etc/localtime"], check=True)
-                        subprocess.run(["arch-chroot", "/mnt", "hwclock", "--systohc"], check=True)
-                    
-                    
-                    if layout_code:
-                        with open("/mnt/etc/vconsole.conf", "w") as f:
-                            f.write(f"KEYMAP={layout_code}\n")
+                    # Fix X11 for Plasma
+                    x11_conf_dir = "/mnt/etc/X11/xorg.conf.d"
+                    os.makedirs(x11_conf_dir, exist_ok=True)
+                    with open(os.path.join(x11_conf_dir, "00-keyboard.conf"), "w") as f:
+                        f.write('Section "InputClass"\n')
+                        f.write('        Identifier "system-keyboard"\n')
+                        f.write('        MatchIsKeyboard "on"\n')
+                        f.write(f'        Option "XkbLayout" "{layout_code}"\n')
+                        f.write('EndSection\n')
 
-                        # X11 layout config
-                        x11_conf_dir = "/mnt/etc/X11/xorg.conf.d"
-                        os.makedirs(x11_conf_dir, exist_ok=True)
-                        with open(os.path.join(x11_conf_dir, "00-keyboard.conf"), "w") as f:
-                            f.write('Section "InputClass"\n')
-                            f.write('        Identifier "system-keyboard"\n')
-                            f.write('        MatchIsKeyboard "on"\n')
-                            f.write(f'        Option "XkbLayout" "{layout_code}"\n')
-                            f.write('EndSection\n')
-
-            print("Time and layout updated.")
+            print("Time and layout updated for Artix/OpenRC.")
         except subprocess.CalledProcessError as e:
             print(f"Error setting time/layout: {e}")
 
     threading.Thread(target=run_commands, daemon=True).start()
-
 def next_clicked(plus=0):
     if isinstance(plus, bool):
         plus = 0
@@ -415,10 +531,7 @@ def on_save_clicked():
     next_clicked(0)
 
 def disconnect_wifi():
-    subprocess.run(
-        ["nmcli", "device", "disconnect", "wlan0"],
-        check=True
-    )
+    log_command(["nmcli", "device", "disconnect", "wlan0"])
     page3()
 
 def connect_wifi():
@@ -443,17 +556,26 @@ def connect_wifi():
         try:
 
             if secure:
-                subprocess.run([
+                log_command([
                     "nmcli", "connection", "add",
                     "type", "wifi", "ifname", "*",
                     "con-name", ssid, "ssid", ssid,
                     "wifi-sec.key-mgmt", "wpa-psk",
                     "wifi-sec.psk", password
-                ], check=True)
+                ])
 
-                subprocess.run(["nmcli", "connection", "up", ssid], check=True)
+                log_command(["nmcli", "connection", "up", ssid])
+                try:
+                    log_command(['sudo', 'rm', '-f', '/etc/resolv.conf'])
+                    subprocess.run(['sudo', 'tee', '/etc/resolv.conf'], 
+                                input=b'nameserver 1.1.1.1\n', 
+                                check=True)
+                except subprocess.CalledProcessError as e:
+                    print(f"Command failed: {e}")
             else:
-                subprocess.run(["nmcli", "device", "wifi", "connect", ssid], check=True)
+                log_command(["nmcli", "device", "wifi", "connect", ssid])
+            
+            
             
             print(f"Successfully connected to {ssid}")
             window.labelStatusWifi.setText("Connected")
@@ -465,8 +587,10 @@ def connect_wifi():
             
         except subprocess.CalledProcessError:
             QTimer.singleShot(0, lambda: window.labelStatusWifi.setText("Connection Failed"))
+        
 
     threading.Thread(target=run_connection, daemon=True).start()
+    
 
 def log_item():
     item = window.wifiList.currentItem()
@@ -494,7 +618,14 @@ def toggle_ethernet(enabled = bool):
         devicelan = devicelan.stdout.strip()
         print(f"Device found: {devicelan}")
 
-        subprocess.run(["nmcli", "device", "connect", devicelan], check=True)
+        log_command(["nmcli", "device", "connect", devicelan])
+        try:
+            log_command(['sudo', 'rm', '-f', '/etc/resolv.conf'])
+            subprocess.run(['sudo', 'tee', '/etc/resolv.conf'], 
+                        input=b'nameserver 1.1.1.1\n', 
+                        check=True)
+        except subprocess.CalledProcessError as e:
+            print(f"Command failed: {e}")
 
         global connected
         connected = True
@@ -542,7 +673,7 @@ def skip_user():
     useryn = False
 
 def reboot():
-    subprocess.run(["reboot"], shell=True, check=True)
+    log_command(["reboot"])
 
 def toggle_dev(enabled = bool):
     global dev
@@ -570,16 +701,16 @@ def page2():
 def page3():
     global wifi_status
     window.wifiList.clear()
-    status = subprocess.check_output(
+    status = log_command(
     ["nmcli", "-t", "-f", "STATE", "general"],
-    text=True
-)    
+    capture_output=True
+).stdout    
     window.labelStatusWifi.setText(status.capitalize())
     wifi_status = window.labelStatusWifi.setText(status.capitalize())
-    wifilist = subprocess.check_output(
+    wifilist = log_command(
     ["nmcli", "-t", "-f", "IN-USE,SSID,SECURITY,SIGNAL", "device", "wifi", "list"],
-    text=True
-)
+    capture_output=True
+).stdout
     for line in wifilist.splitlines():
         in_use, ssid, security, signal = line.split(":", 3)        
         lock = "🔒" if security != "--" else "🔓"
@@ -604,7 +735,10 @@ def page3():
 def page5():
     global gpu_command
 
-    gpu_vendor = subprocess.check_output("lspci | grep -E 'VGA|3D'", shell=True, text=True)
+    gpu_vendor = log_command(
+        ["bash", "-c", "lspci | grep -E 'VGA|3D'"],
+        capture_output=True
+    ).stdout
     print(gpu_vendor)
     
     if "NVIDIA" in gpu_vendor:
@@ -613,7 +747,7 @@ def page5():
         window.labelGpu.setText(gpu_vendor + " was detected")
     elif "AMD" in gpu_vendor:
         gpu_vendor = "AMD Radeon"
-        gpu_command = "mesa lib32-mesa vulkan-radeon lib32-vulkan-radeon libva-mesa-driver"
+        gpu_command = "mesa vulkan-radeon libva-mesa-driver"
         window.labelGpu.setText(gpu_vendor + " was detected")
     elif "Intel" in gpu_vendor:
         gpu_vendor = "Intel Graphics"

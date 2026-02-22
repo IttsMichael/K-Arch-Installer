@@ -1,0 +1,5 @@
+#!/usr/bin/env bash 
+sudo rc-update del agetty.tty3 default
+sudo rc-update del agetty.tty4 default
+sudo rc-update del agetty.tty5 default
+sudo rc-update del agetty.tty6 default

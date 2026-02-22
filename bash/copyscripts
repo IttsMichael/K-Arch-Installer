@@ -81,9 +81,9 @@ cp -a /usr/local/bin/apply-my-plasma-defaults \
 
 chmod 755 /mnt/usr/local/bin/apply-my-plasma-defaults
 
-echo "Copying disk configuration"
+# echo "Copying disk configuration"
 
-cp -a /usr/local/share/disk.sh /mnt/usr/local/share/disk.sh
+# cp -a /usr/local/share/disk.sh /mnt/usr/local/share/disk.sh
 
 find "$BASH_DIR" -maxdepth 1 -type f -not -name "copyscripts" -exec install -Dm755 {} /mnt/usr/local/bin/ \;
 
@@ -98,5 +98,14 @@ if [[ -f /etc/fastfetch/config.jsonc ]]; then
     mkdir -p /mnt/etc/fastfetch
     cp /etc/fastfetch/config.jsonc /mnt/etc/fastfetch/config.jsonc
 fi
+
+# zramen
+echo "Copying zramen configuration"
+
+cp -a /etc/zramen.conf /mnt/etc/zramen.conf
+
+echo "copying swap / ram config"
+
+cp -a /etc/sysctl.d/99-karch-performance.conf /mnt/etc/sysctl.d/99-karch-performance.conf
 
 echo ">>> Scripts and configuration deployed successfully."
