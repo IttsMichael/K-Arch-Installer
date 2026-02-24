@@ -26,7 +26,7 @@
     </rect>
    </property>
    <property name="currentIndex">
-    <number>8</number>
+    <number>7</number>
    </property>
    <widget class="QWidget" name="page">
     <widget class="QLabel" name="info">
@@ -1006,8 +1006,8 @@ QListWidget:disabled {
     <widget class="QListWidget" name="listWidget">
      <property name="geometry">
       <rect>
-       <x>50</x>
-       <y>90</y>
+       <x>20</x>
+       <y>80</y>
        <width>256</width>
        <height>192</height>
       </rect>
