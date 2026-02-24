@@ -179,6 +179,12 @@ def install():
     global template
     global gaming
     global dev
+    kde = window.swapkde.isChecked()
+    xfce = window.swapxfce.isChecked()
+    gnome = window.swapgnome.isChecked()
+    kdestring = ""
+    xfcestring = ""
+    gnomesring = ""
     
     # Base Directory for scripts (assumed defined elsewhere, ensure it's accessible)
     # base_dir = os.path.dirname(os.path.realpath(__file__)) 
@@ -204,6 +210,21 @@ def install():
             print(f"Error running: {cmd}\nException: {e}")
 
 
+    if kde == True:
+        kdestring = ["plasma-deskop", "dolphin", "konsole"]
+    else:
+        kdestring = ""
+
+    if xfce == True:
+        xfcestring = ["xfce4", "xfce4-terminal", "xfce4-goodies"]
+    else:
+        xfcestring = ""
+
+    if gnome == True:
+        gnomestring = ["gnome", "konsole"]
+    else:
+        gnomestring = ""
+
     print("Starting base installation...")
     base_cmd = [
         "basestrap", "-G", "-K", "/mnt", 
@@ -212,15 +233,15 @@ def install():
         "openrc", "elogind-openrc", "dbus-openrc", 
         "artix-archlinux-support", 
         "networkmanager", "networkmanager-openrc", 
-        "vim", "xfce4", "sddm", "sddm-openrc", 
-        "firefox", "xfce4-terminal", "xfce4-goodies", "fastfetch", 
+        "vim", "sddm", "sddm-openrc", 
+        "firefox", "fastfetch", 
         "imagemagick", "pacman-contrib", 
         "libadwaita", "grub", "efibootmgr", "zramen",
         "zramen-openrc"
     ]
     
     # Combine lists safely
-    full_command = base_cmd + drivers.split() + add.split()
+    full_command = base_cmd + drivers.split() + add.split() + kdestring + xfcestring + gnomestring
     
     try:
         # 1. Main Package Installation
@@ -228,23 +249,14 @@ def install():
 
         # 2. Gaming Section (Multilib handling)
         if gaming:
-            print("Enabling multilib...")    
-            # sed_script = r'/^# *\[multilib\]/,/^# *Include/ s/^# *//'
-
-            # Enable on the Live ISO (so the current session can find the packages)
-            # subprocess.run(["sed", "-i", sed_script, "/etc/pacman.conf"], check=True)
-            # subprocess.run(["pacman", "-Sy"], check=True)
-
-            # Enable on the Target system (for the user's future use)
-            # subprocess.run(["sed", "-i", sed_script, "/mnt/etc/pacman.conf"], check=True)
 
             print("Installing gaming packages...")
             # Use basestrap to stay consistent with Artix hooks
-            # subprocess.run([
-            #     "basestrap", "-K", "/mnt", 
-            #     "steam", "wine", "giflib", "lutris", 
-            #     "discord", "openrgb", "gamemode"
-            # ], check=True)
+            subprocess.run([
+                "basestrap", "-K", "/mnt", 
+                "steam", "wine", "giflib", "lutris", 
+                "discord", "openrgb", "gamemode"
+            ], check=True)
 
         # 3. Generate FSTAB
         print("Generating fstab...")
