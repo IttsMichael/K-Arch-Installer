@@ -212,7 +212,7 @@ def install():
 
 
     if kde == True:
-        kdestring = ["plasma-deskop", "dolphin", "konsole"]
+        kdestring = ["plasma-desktop", "dolphin", "konsole"]
     else:
         kdestring = ""
 
