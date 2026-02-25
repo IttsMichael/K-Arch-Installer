@@ -26,7 +26,7 @@
     </rect>
    </property>
    <property name="currentIndex">
-    <number>7</number>
+    <number>8</number>
    </property>
    <widget class="QWidget" name="page">
     <widget class="QLabel" name="info">
@@ -278,7 +278,7 @@ Make sure you choose the correct device before continuing.
       <number>10000</number>
      </property>
      <property name="maximum">
-      <number>2000000</number>
+      <number>999999999</number>
      </property>
     </widget>
     <widget class="QSpinBox" name="spinSwap">
@@ -297,7 +297,7 @@ Make sure you choose the correct device before continuing.
       <number>1000</number>
      </property>
      <property name="maximum">
-      <number>1000000</number>
+      <number>999999999</number>
      </property>
      <property name="value">
       <number>2048</number>
@@ -340,6 +340,19 @@ Make sure you choose the correct device before continuing.
      </property>
      <property name="text">
       <string>Use full disk</string>
+     </property>
+    </widget>
+    <widget class="QLabel" name="label_31">
+     <property name="geometry">
+      <rect>
+       <x>220</x>
+       <y>360</y>
+       <width>151</width>
+       <height>19</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string/>
      </property>
     </widget>
    </widget>
@@ -1163,6 +1176,32 @@ QListWidget:disabled {
        <set>ItemIsDragEnabled|ItemIsUserCheckable|ItemIsEnabled</set>
       </property>
      </item>
+    </widget>
+    <widget class="QPushButton" name="previous8">
+     <property name="geometry">
+      <rect>
+       <x>20</x>
+       <y>350</y>
+       <width>88</width>
+       <height>34</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>Previous</string>
+     </property>
+    </widget>
+    <widget class="QPushButton" name="saveadd">
+     <property name="geometry">
+      <rect>
+       <x>400</x>
+       <y>350</y>
+       <width>88</width>
+       <height>34</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>Save</string>
+     </property>
     </widget>
    </widget>
    <widget class="QWidget" name="page8">

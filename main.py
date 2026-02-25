@@ -120,6 +120,7 @@ gaming = False
 template = False
 useryn = False
 uefi = True
+pathdisk = ""
 
 
 
@@ -179,9 +180,9 @@ def install():
     global template
     global gaming
     global dev
-    kde = window.swapkde.isChecked()
-    xfce = window.swapxfce.isChecked()
-    gnome = window.swapgnome.isChecked()
+    kde = window.checkkde.isChecked()
+    xfce = window.checkxfce.isChecked()
+    gnome = window.checkgnome.isChecked()
     kdestring = ""
     xfcestring = ""
     gnomesring = ""
@@ -225,6 +226,14 @@ def install():
     else:
         gnomestring = ""
 
+    checked_items = []
+
+    for i in range(window.listWidget.count()):
+        item = window.listWidget.item(i)
+
+        if item.checkState() == Qt.CheckState.Checked:
+            checked_items.append(item.text())
+
     print("Starting base installation...")
     base_cmd = [
         "basestrap", "-G", "-K", "/mnt", 
@@ -240,8 +249,7 @@ def install():
         "zramen-openrc"
     ]
     
-    # Combine lists safely
-    full_command = base_cmd + drivers.split() + add.split() + kdestring + xfcestring + gnomestring
+    full_command = base_cmd + drivers.split() + add.split() + kdestring + xfcestring + gnomestring + checked_items
     
     try:
         # 1. Main Package Installation
@@ -258,7 +266,7 @@ def install():
                 "discord", "openrgb", "gamemode"
             ], check=True)
 
-        # 3. Generate FSTAB
+        # 3. Generate fstab
         print("Generating fstab...")
         window.installStatus.setText("Generating fstab...")
         with open("/mnt/etc/fstab", "w") as fstab_file:
@@ -267,7 +275,7 @@ def install():
         # 4. Copying Scripts
         window.installStatus.setText("Copying installer scripts...")
         print("Copying installer scripts...")
-        # Ensure base_dir is defined; replacing with common path logic if not
+  
         try:
             bash_dir = os.path.join(base_dir, "bash")
             log_command(["bash", os.path.join(bash_dir, "copyscripts")])
@@ -358,6 +366,7 @@ def savedisk():
     def run_partition():
         
         global uefi
+        global pathdisk
         idxdisks = window.comboDisk.currentIndex()
         pathdisk = disks[idxdisks][1]
         root_size = window.spinRoot.value()
@@ -403,6 +412,30 @@ def savedisk():
             
     threading.Thread(target=run_partition, daemon=True).start()
 
+
+def check_part():
+    global pathdisk 
+    cmd = ["lsblk", "-b", "-d", "-n", "-o", "SIZE", f"{pathdisk}"]
+    bytes_str = subprocess.check_output(cmd).decode().strip()
+    
+    # Convert to int first
+    total_bytes = int(bytes_str)
+    
+    # Calculate MiB (Division by 1024 squared)
+    size = total_bytes // (1024 * 1024)
+    
+    print(f"Variable 'size' is now: {size}")
+
+    
+    swap_enabled = window.swapCheck.isChecked()
+    root_enabled = window.rootCheck.isChecked()
+    selected = window.spinSwap.value() if swap_enabled else 0
+    selected = selected + 0 if root_enabled else window.spinRoot.value() 
+    print(selected)
+    if selected > size:
+        window.label_31.setText("Partitions too large")
+    else:
+        next_clicked()
 
 def layout_format():
     window.comboLayout.clear()
@@ -806,6 +839,7 @@ window.previous4.clicked.connect(back)
 window.previous5.clicked.connect(back)
 window.previous6.clicked.connect(back)
 window.previous7.clicked.connect(back)
+window.previous8.clicked.connect(back)
 
 # save and next
 
@@ -813,11 +847,12 @@ window.nextButton.clicked.connect(check_uefi)
 window.saveUser.clicked.connect(save_user)
 window.yesgpu.clicked.connect(install_drivers)
 window.next4.clicked.connect(next_clicked)
+window.saveadd.clicked.connect(next_clicked)
 window.installButton.clicked.connect(savedisk)
 window.saveTemplate.clicked.connect(save_template)
 window.nextInternet.clicked.connect(next_internet)
 window.savetime.clicked.connect(on_save_clicked)
-window.savedisks.clicked.connect(next_clicked)
+window.savedisks.clicked.connect(check_part)
 window.rebootButton.clicked.connect(reboot)
 window.rebootBtn.clicked.connect(reboot)
 
